@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta http-equiv="content-type"
+        content="text/html; charset=UTF-8">
+    <title>naraba^2 今日行っていい？</title>
+    <style>
+    body { font-size:12pt; color:#006666; }
+    h1 { font-size:18pt; background-color:#AAFFFF; }
+    pre { background-color:#EEEEEE; }
+    </style>
+</head>
+ 
+ 
+<body>
+<script type="text/javascript">
+function show_message(text){
+	alert(text);
+}
+function send_command(command){
+
+	var xhr = new XMLHttpRequest();
+
+	var send_URL = "/api/command/"+command;
+  xhr.open("POST", send_URL, true);
+
+	xhr.onreadystatechange = function(){
+	    var READYSTATE_COMPLETED = 4;
+	    var HTTP_STATUS_OK = 200;
+		//console.log("onreadystatechange log: readyState="+this.readyState + " status="+this.status);
+
+	    if( this.readyState == READYSTATE_COMPLETED
+	     && this.status == HTTP_STATUS_OK )
+	    {
+	        // レスポンスの表示
+	        console.log( this.responseText );
+	    }
+	}
+
+
+	xhr.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded' );
+//	xhr.setRequestHeader( 'Content-Type', 'text/plain' );
+
+	// データをリクエスト ボディに含めて送信する
+	xhr.send( null );
+
+
+}
+</script>
+
+  <H2>
+     今、現在のnaraba^2 は、
+  </H2>
+  
+  <!--
+    <input type="button" value="@content1@" 
+        style="background-color:@content3@;color:#FFFFFF;font-size:50pt" 
+        onClick="show_message('@content4@')">
+-->         
+<!--   
+    <img src="images/image_open.jpg" width="80%" alt="直接表示NG">
+-->
+        
+    <Div Align="center">    
+    <img src="images/<%=content2 %>" width="50%" alt="<%=content1 %>">
+    </Div>
+      
+<!--
+content1= <%=content1 %>
+content2= <%=content2 %>
+content3= <%=content3 %>
+content4= <%=content4 %>
+-->
+
+
+<BR><BR>
+<form>
+　<button type="button" onclick="send_command('increment_like')">
+　<img src="./images/like_icon.png" width="50px"><br><%=content5 %>
+　</button>
+</form>
+
+<Div Align="right">
+produced by 
+<img src="images/CodeForNara_logo.png" alt="CODE for NARA">
+<img src="images/encounter_logo.png" alt="えんカウンター">
+</Div>
+
+</body>
+ 
+</html>

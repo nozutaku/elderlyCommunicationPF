@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title>naraba^2管理画面</title>
+</head>
+<body>
+
+管理者用画面<BR><BR>
+<div>
+
+<input type="button" value="本日強制オープン" onClick="send_command('force_open')">
+<input type="button" value="本日強制クローズ" onClick="send_command('force_close')">
+<input type="button" value="えんカウンタにまかせた" onClick="send_command('judge_sensor')">
+<BR>
+<input type="button" value="いいねオールリセット" onClick="send_command('reset_like')">
+<input type="button" value="オールリセット" onClick="send_command('set_all_default')">
+
+<BR><BR><BR>
+<font color=gray>
+<A href = "https://v2urc.cybozu.com/k/17/">●生データ(kintone)はここ</A><BR>
+account: cfn-guest <BR>
+pass: code4nara <BR><BR><BR>
+
+●登録は下記コマンド
+<pre>
+curl -X POST "https://v2urc.cybozu.com/k/v1/record.json" -H "X-Cybozu-API-Token: (野津に聞いてね)" -H "Content-Type:application/json" -d "{"app": 17,"record": {"latitude": {"value": "34.8760"},"longitude": {"value": "135.8760"},"count": {"value": "1"}}}"
+</pre>
+</font>
+
+
+
+<script type="text/javascript">
+
+function send_command(command){
+
+	var xhr = new XMLHttpRequest();
+
+	var send_URL = "/api/command/"+command;
+  xhr.open("POST", send_URL, true);
+
+	xhr.onreadystatechange = function(){
+	    var READYSTATE_COMPLETED = 4;
+	    var HTTP_STATUS_OK = 200;
+		//console.log("onreadystatechange log: readyState="+this.readyState + " status="+this.status);
+
+	    if( this.readyState == READYSTATE_COMPLETED
+	     && this.status == HTTP_STATUS_OK )
+	    {
+	        // レスポンスの表示
+	        console.log( this.responseText );
+	    }
+	}
+
+
+	xhr.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded' );
+//	xhr.setRequestHeader( 'Content-Type', 'text/plain' );
+
+	// データをリクエスト ボディに含めて送信する
+	xhr.send( null );
+
+
+}
+</script>
+
+<!--
+<script type="text/javascript" src="like_client.js"></script>
+<script type="text/javascript">
+$(window).ready(function($){
+	var likeClient = new LikeClient;
+	if (!likeClient.isSupport()) {
+		alert("ご利用のブラウザは対応していません。\n"
+			+ "Androidの場合はChromeをご利用ください。");
+		return;
+	}
+
+	likeClient.actions.status = likeClient.actions.like = function(data) {
+		$("#button_reset").removeAttr("disabled");
+	};
+	likeClient.open();
+	$("#button_reset").on('click', function(e) {
+		likeClient.reset($("#button_pw").val());
+	});
+});
+</script>
+
+
+-->
+
+
+</body>
+</html>
