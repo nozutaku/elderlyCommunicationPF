@@ -36,6 +36,14 @@ global.line_reply_token;
 
 //line_reply_modeへ格納する値
 global.LINE_MODE_1 = 1;
+
+global.LINE_MODE_ACCEPT_REPLY = 2;
+global.LINE_MODE_DENEY_REPLY_NO_DATA = 3;
+global.LINE_MODE_DENEY_REPLY_ALREADY_EXIST = 4;
+
+
+
+global.LINE_MODE_NOTIFY_CORRECT_FORMAT = 7;   //フォーマット問い合わせ
 global.LINE_MODE_FOLLOW = 8;
 global.LINE_MODE_UNFOLLOW = 9;
 
@@ -119,18 +127,37 @@ app.get('/', function(req, res) {
 
 app.post("/api/command/:command", function(req, res, next){
 
-	console.log("command="+req.params.command);
+  console.log("req.params.command="+req.params.command);
+  console.log("originalUrl="+req.originalUrl);
+  console.log("req.query.daytime="+req.query.daytime);
+  console.log("req.query.pickup_people="+ req.query.pickup_people);
+  
+  //  baseURL/register?daytime=xxx&pickup_people=zzz
   
   //twillioから送迎要求
   if( req.params.command == "register"){
-    var params = querystring.parse(　req.params.command　);
     
-    //★★★★このあたりのI/Fの合わせこみ未　★★★★
-    input_date = params['date'];
-    input_time = params['time'];
-    input_pickup_people = params['pickup_people'];
-    input_destination = params['destination'];
+    console.log("start register");
     
+    var daytime_str = req.query.daytime;
+    console.log("year="+daytime_str.substr(0,4) );
+    console.log("month="+daytime_str.substr(4,2));
+    console.log("day="+daytime_str.substr(6,2));
+    console.log("hour="+daytime_str.substr(8,2));
+    console.log("month="+daytime_str.substr(10,2));
+    
+    input_date = daytime_str.substr(0,4) + "-" + daytime_str.substr(4,2) + "-" + daytime_str.substr(6,2);
+    input_time = daytime_str.substr(8,2) + ":" + daytime_str.substr(10,2);
+    
+    
+    input_pickup_people = req.query.pickup_people;
+    input_destination = "";
+    
+    console.log("------");
+    console.log("input_date="+input_date);
+    console.log("input_time="+input_time);
+    console.log("input_pickup_people="+input_pickup_people);
+    console.log("------");
     
     //カレンダー(DB)へ登録
     kintone_command.set_data2db();
@@ -263,13 +290,17 @@ app.post('/webhook', function(req, res, next){
           if( event.type == 'follow' ){
             
             line_reply_mode = LINE_MODE_FOLLOW;
-            line_message(event);
-              
+            //line_message(event);
           }
           else{
             line_reply_mode = LINE_MODE_UNFOLLOW;
-            line_message(event);
+            //line_message(event);
+            
           }
+          input_line_message = "";
+          line_reply_token = event.replyToken;
+          line_command.send_line_reply();
+          
         }
       }
     }
@@ -293,6 +324,9 @@ app.post('/', function (req, res) {
 
 
 function line_message( event ){
+  
+  line_reply_token = event.replyToken;
+  
   console.log("====================\n");
   console.log("LINE message event come now.")
   //console.log(event);
@@ -306,24 +340,44 @@ function line_message( event ){
   if( event.type == 'message' ){
     input_line_message = event.message.text;
     console.log("input_message = "+ input_line_message);
+    input_destination = " ";
     
     if( is_valid_register_input( input_line_message )){
-      //DBへ登録★★★
+      console.log("input_date="+input_date);
+      console.log("input_time="+input_time);
+      console.log("input_pickup_people="+input_pickup_people);
+      console.log("input_sender="+input_sender);
+      
+      
+      
+      kintone_command.update_data2db()
+      .done(function(){
+        line_command.send_line_reply();
+        console.log("kintone_command send");
+      });
+      
+      
       
     }
     else{
-      //正常な入力では無いのでその旨連絡必要★★★
+      line_reply_mode = LINE_MODE_NOTIFY_CORRECT_FORMAT;
+      line_command.send_line_reply();
     }
   }
   else{
     input_line_message = "";
+    line_reply_mode = LINE_MODE_NOTIFY_CORRECT_FORMAT;
+    
+    line_command.send_line_reply();
   }
   
-  line_reply_token = event.replyToken;
   
-  
-  line_command.send_line_reply();
 }
+
+
+
+
+
 
 function is_valid_register_input( input_text ){
   /*
@@ -331,9 +385,79 @@ function is_valid_register_input( input_text ){
       + "送迎対象者: 〇〇\n"
       + "あなたの名前: 〇〇\n\n"
       */
+  var KEYWORD_DATE = "日";
+  var KEYWORD_TIME = "時間"
+  var KEYWORD_PLACE = "場所";
+  var KEYWORD_PICKUPPEOPLE = "送迎対象者";
+  var KEYWORD_SENDER = "あなたの名前";
+
+
+  //var str = "日時：2018/10/23 10:00\n場所: いそかわ\n人:野津"；
+  //var str = "日時：2018/10/23 10:00"；
+  //var str = "日時：2018/10/23 10:00";
+  //var str = "日時：2018/10/23 10時\n場所：いそかわ\n人：野津";
+  //var str = "日時：";
   
-  var counter = input_text.indexOf( '日時' );
+  //init
+  input_date = "";
+  input_time = "";
+  input_pickup_people = "";
+  input_sender = "";
   
-  return(1);
+
+  var arry = input_text.split("\n");
+
+  console.log("array.length = "+ arry.length);
+  console.log("arry");
+  console.log(arry);
+
+  for(var i=0; i<arry.length; i++ ){
+    console.log("arry["+i+"]"+arry[i]);
+
+    var tmp = arry[i].split( /:|：|" "|"　"/ );
+    
+    /*
+    if(tmp[0]==KEYWORD_DATE){
+      console.log("daytime＝"+tmp[1]);
+      
+
+      var tmp2 = tmp[1].replace("　", " ").split(" ");
+//      var tmp2 = tmp[1].replace("　", " ").split(" ",0);
+      //var tmp2 = tmp[1].split(" ");
+      
+      //var tmp2 = tmp[1].split(/" "|"　"|/);
+      input_date = tmp2[0];
+      input_time = tmp2[1];
+      console.log("tmp2[0]="+tmp2[0]);
+      console.log("tmp2[1]="+tmp2[1]);
+
+    } */
+      
+    if(tmp[0]==KEYWORD_DATE) {
+      input_date = tmp[1].trim();
+      console.log("input_date=" + tmp[1]);
+    }    
+    else if(tmp[0]==KEYWORD_TIME) {
+      input_time = (tmp[1]+":"+tmp[2]).trim();
+      console.log("input_time=" + input_time);
+    }    
+    else if(tmp[0]==KEYWORD_PICKUPPEOPLE) {
+      input_pickup_people = tmp[1].trim();
+      console.log("pickuppeople=" + tmp[1]);
+    }
+    else if(tmp[0]==KEYWORD_SENDER){
+      input_sender = tmp[1].trim();
+      console.log("hito="+tmp[1]);
+    }
+  }
+  
+  
+  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" ) && ( input_sender != "" )){
+    return(1);
+  }
+  else{
+    return(0);  //登録材料は揃っていない
+  }
+  
   
 }

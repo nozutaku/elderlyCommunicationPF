@@ -32,7 +32,10 @@ module.exports.set_data2db = function(req, res){
 }
 
 module.exports.update_data2db = function(req, res){
-  update_data( input_date, input_time, input_pickup_people, input_destination, input_sender );
+  
+  var dfd_update_data2db = new $.Deferred;
+  
+  return update_data( dfd_update_data2db, input_date, input_time, input_pickup_people, input_destination, input_sender );
 }
 
 module.exports.set_account_data2db = function(req, res){
@@ -141,14 +144,17 @@ function delete_account( id ){    //new_follower_line_id
 /* ------------------------------------------------------------
    date/time/pickup_peopleと同一のデータレコードにsenderを追加する
   ------------------------------------------------------------- */
-function update_data( date, time, pickup_people, destination, sender ){
+function update_data( dfd, date, time, pickup_people, destination, sender ){
   //var id = select_id( date, time, pickup_people, destination );
   //  update_id( id, sender );
   
   select_id()    //引数付けるとdeffer使えないようだ
   .done(function(){
     update_id( kintone_id, input_sender );
+    return dfd.resolve();
   });  
+  
+  return dfd.promise();
 }
 
 
@@ -197,11 +203,25 @@ function select_id(){   //input_date, input_time, input_pickup_people, input_des
         //console.log("input_destination = "+ input_destination);
         //console.log("input_pickup_people = "+ input_pickup_people);
         
+        /*
         if(( body.records[i].destination.value == input_destination ) 
            && ( body.records[i].pickup_people.value == input_pickup_people )){
+        */
+        if( body.records[i].pickup_people.value == input_pickup_people ){
           
           kintone_id = body.records[i].$id.value;
           console.log("kintone_id = " + kintone_id );
+          
+          if( body.records[i].sender.value == "" ){
+            line_reply_mode = LINE_MODE_ACCEPT_REPLY;
+            console.log("line_reply_mode="+line_reply_mode);
+          }
+          else{
+            line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
+            console.log("line_reply_mode="+line_reply_mode);
+            //return dfd_select_id.reject();
+          }
+          
           
           return dfd_select_id.resolve();
         }
@@ -213,6 +233,7 @@ function select_id(){   //input_date, input_time, input_pickup_people, input_des
       return dfd_select_id.resolve();
     } else {
       console.log('[select_id]http error: '+ response.statusCode);
+      line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
       return dfd_select_id.resolve();
     }
   });  
@@ -293,6 +314,11 @@ function update_id( kintone_id, sender ){
   
   var dfd_updateid = new $.Deferred;
   
+  if( kintone_id == -1 ){
+    line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
+      return dfd_updateid.resolve();
+  }
+  
   var options = {
     uri: process.env.KINTONE_URL,
     headers: {
@@ -316,6 +342,7 @@ function update_id( kintone_id, sender ){
       return dfd_updateid.resolve();
     } else {
       console.log('[update_data]http error: '+ response.statusCode);
+      line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
       return dfd_updateid.resolve();
     }
   });
