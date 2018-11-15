@@ -2,6 +2,7 @@
 
 //===== 設定(ここから) =======================================
 var IS_HEROKU = 1;		//デバッグオプション
+var DEBUG = 1;
 //===== 設定(ここまで) =======================================
 
 
@@ -25,8 +26,8 @@ var kintone_command = require('./kintone.js');
 
 global.input_date;
 global.input_time;
-global.input_pickup_people;
-global.input_sender;
+global.input_pickup_people;   //送迎対象者(送迎される人)
+global.input_sender;          //送迎する人
 global.input_destination;
 global.input_kintone_id;
 
@@ -40,6 +41,7 @@ global.LINE_MODE_1 = 1;
 global.LINE_MODE_ACCEPT_REPLY = 2;
 global.LINE_MODE_DENEY_REPLY_NO_DATA = 3;
 global.LINE_MODE_DENEY_REPLY_ALREADY_EXIST = 4;
+global.LINE_MODE_DENEY_REPLY_CANCEL = 5;
 
 
 
@@ -50,6 +52,26 @@ global.LINE_MODE_UNFOLLOW = 9;
 global.new_follower_line_id;
 
 global.line_broadcast_account;
+
+
+global.NotDecidedDay = function( ){
+  this.date="";
+  this.time = "";
+  this.pickup_people="";
+  this.sender="";
+  this.destination="";
+  this.kintone_id = -1;
+}
+global.no_candidate_day = new Array();
+
+
+//check_postback_type()の戻り値
+var POSTBACK_TYPE_NEED_CONFIRM = 1;
+var POSTBACK_TYPE_REGISTER = 2;
+var POSTBACK_TYPE_CANCEL = 3;
+
+global.CONFIRM_WORD = "CHOOSE_";
+global.CANCEL_WORD = "CANCEL_";
 
 
 var app = express();
@@ -307,16 +329,117 @@ app.post('/webhook', function(req, res, next){
     // グループまたはトークルームに参加
     else if(( event.type == 'join' ) || ( event.type == 'leave' )){
     }
+    //button選択した場合
+    else if( event.type == 'postback' ){
+      console.log("event.source.userId="+event.source.userId);
+      console.log("event.postback.data="+event.postback.data);
+      
+      line_reply_token = event.replyToken;
+
+      
+      var postback_type = check_postback_type( event.postback.data );
+      
+      if( postback_type == POSTBACK_TYPE_NEED_CONFIRM ){
+        
+        kintone_command.check_still_vacant()
+        .done(function(){
+          if( input_kintone_id > 0 ){
+            //input_kintone_idは既に入力済
+            line_command.send_line_confirm();
+          }
+          else{
+            line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
+            input_line_message = "";
+            line_command.send_line_reply();
+            console.log("sender is already decided.");
+          }
+        });
+        
+      }else if( postback_type == POSTBACK_TYPE_REGISTER ){
+        input_kintone_id = event.postback.data;
+        
+        
+        kintone_command.check_still_vacant()
+        .done(function(){
+          if( input_kintone_id > 0 ){
+              input_sender = "テストさん"; //★★★本番はLINEIDから取得する
+
+              kintone_command.update_id2db()
+              .done(function(){
+                input_line_message = "";
+                line_reply_mode = LINE_MODE_ACCEPT_REPLY;
+                line_command.send_line_reply();
+                console.log("kintone_command send");
+              });
+
+
+          }
+          else{ //既に送迎者が決まっていた場合kintone_command.check_still_vacant()の中でinput_kintone_id = -1が設定される
+
+              line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
+              input_line_message = "";
+              line_command.send_line_reply();
+              console.log("sender is already decided.");
+
+          }
+
+          });
+        
+      }
+      else if( postback_type == POSTBACK_TYPE_CANCEL ){
+        input_kintone_id = -1;
+        line_reply_mode = LINE_MODE_DENEY_REPLY_CANCEL;
+        input_line_message = "";
+        line_command.send_line_reply();
+        console.log("cancel");
+        
+      }
+      else{
+        //無いはず
+        console.log("error postback type");
+      }
+
+    }
     //よくわからないメッセージ受信
     else{
       console.log("unknown webhook");    //★★LINEスタンプを返そう。「ごめんわからないよー」とかの意味の
+      console.log(event);
+    
     }
   }
   
-
-  
 });
-         
+  
+
+/* ------------------------------------------------
+  入力strが CHOOSE_100のように「CHOOSE」がついていればPOSTBACK_TYPE_NEED_CONFIRM
+  CANCEL_100 も同様
+*/
+function check_postback_type( str ){
+  
+  var ret;
+  
+  
+  if( str.indexOf( CONFIRM_WORD ) != -1 ){
+    input_kintone_id = str.substr( CONFIRM_WORD.length, str.length-CONFIRM_WORD.length );
+    ret = POSTBACK_TYPE_NEED_CONFIRM;
+  }
+  else if( str.indexOf( CANCEL_WORD ) != -1 ){
+    input_kintone_id = str.substr( CANCEL_WORD.length, str.length-CANCEL_WORD.length );
+    ret = POSTBACK_TYPE_CANCEL;
+  }
+  else{
+    input_kintone_id = str;
+    ret = POSTBACK_TYPE_REGISTER;
+  }
+  
+  console.log("input_kintone_id="+input_kintone_id);
+  
+return ret;
+}
+
+
+
 app.post('/', function (req, res) {
   console.log("etc");
   res.send('POST request work well');
@@ -342,7 +465,7 @@ function line_message( event ){
     console.log("input_message = "+ input_line_message);
     input_destination = " ";
     
-    if( is_valid_register_input( input_line_message )){
+      if( is_valid_register_input( input_line_message )){
       console.log("input_date="+input_date);
       console.log("input_time="+input_time);
       console.log("input_pickup_people="+input_pickup_people);
@@ -352,6 +475,7 @@ function line_message( event ){
       
       kintone_command.update_data2db()
       .done(function(){
+        line_reply_mode = LINE_MODE_ACCEPT_REPLY;
         line_command.send_line_reply();
         console.log("kintone_command send");
       });
@@ -360,9 +484,32 @@ function line_message( event ){
       
     }
     else{
-      line_reply_mode = LINE_MODE_NOTIFY_CORRECT_FORMAT;
-      line_command.send_line_reply();
+      //担当者未決定の日を取得し、リスト表示してbotで提示
+      kintone_command.get_vacant_day()
+      .done(function(){
+        
+        if( no_candidate_day.length > 0 ){
+          //vacant_day
+          line_command.send_line_choice();
+        }
+        else{
+          console.log("NO vacant day!");
+          
+          line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
+          input_line_message = "";
+          line_command.send_line_reply();
+        }
+      
+        console.log("send_line_choice");
+      });
+      
+      
+      //show_line_choice( event );
+      
+      //line_reply_mode = LINE_MODE_NOTIFY_CORRECT_FORMAT;
+      //line_command.send_line_reply();
     }
+
   }
   else{
     input_line_message = "";

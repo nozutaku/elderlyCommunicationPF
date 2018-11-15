@@ -168,6 +168,15 @@ module.exports.send_line_reply = function(req, res){
   });
 }
 
+
+module.exports.send_line_choice = function(req, res){
+  show_line_button_template();
+}
+
+module.exports.send_line_confirm = function(req, res){
+  show_line_confirm_template();
+}
+
 function set_line_reply_message( mode, input_message ){
   
   init_pushmessage();
@@ -205,7 +214,7 @@ function set_line_reply_message( mode, input_message ){
   else if( mode == LINE_MODE_DENEY_REPLY_ALREADY_EXIST ){
     info1 = new PushMessage();
     info1.type = 'text';
-    info1.text = "既に送迎対応者が決まってるようです。次回よろしくお願いします。"
+    info1.text = "既に送迎対応者が決まってるようです。次回よろしくお願いします"
                   + String.fromCodePoint(choose_emoji(TYPE_LINE_EMOJI_SMILE));
     pushmessage[0] = info1;
     
@@ -214,7 +223,20 @@ function set_line_reply_message( mode, input_message ){
     info2.packageId = '2';
     info2.stickerId = '38';
     pushmessage[1] = info2;  
-  }  
+  }
+  else if( mode == LINE_MODE_DENEY_REPLY_CANCEL ){
+    info1 = new PushMessage();
+    info1.type = 'text';
+    info1.text = "キャンセル了解しました。\n次回よろしくお願いします"
+                  + String.fromCodePoint(choose_emoji(TYPE_LINE_EMOJI_SMILE));
+    pushmessage[0] = info1;
+    
+    info2 = new PushMessage();
+    info2.type = 'sticker';
+    info2.packageId = '1';
+    info2.stickerId = '13';
+    pushmessage[1] = info2;  
+  }
   else if( mode == LINE_MODE_NOTIFY_CORRECT_FORMAT ){
     info1 = new PushMessage();
     info1.type = 'text';
@@ -364,6 +386,200 @@ function send_notification( destination, push_message, push_or_multicast ){
         json: true
       });
 }
+
+
+function show_line_choice( event ){
+  //reply_message(event);
+  show_line_button_template();
+  
+}
+
+function show_line_button_template(){
+//function reply_message(e) {
+  //var input_text = e.message.text;
+  
+  console.log("START show_line_button_template");
+  console.log("input_line_message="+input_line_message);
+  
+
+
+    /* ----------- [参考]LINE postback/message/url/datetimepicker --------------- 
+    var postData = {
+      "replyToken": line_reply_token,
+      "messages": [{
+        "type": "template",
+        "altText": "select",
+        "template": {
+          "type": "buttons",
+//          "thumbnailImageUrl": "https://~.png",
+          "title": "送迎支援システム",
+          "text": "送迎可能日を選択お願いします",
+          "actions": [
+            {
+              "type": "postback",
+              "label": "postback",
+              "data": "postback selected"
+            },
+            {
+              "type": "message",
+              "label": "message",
+              "text": "text:message"
+            },
+            {
+              "type": "uri",
+              "label": "uri",
+              "uri": "https://linecorp.com"
+            },
+            {
+              "type": "datetimepicker",
+              "label": "datetimepicker",
+              "data": "datetimepicker selected",
+              "mode": "datetime",
+              "initial": "2017-10-25T00:00",
+              "max": 　 "2017-12-31T23:59",
+              "min": "2017-01-01T00:00"
+            }
+          ]
+        }
+      }]
+    };
+    ----------- [参考]LINE postback/message/url/datetimepicker --------------- */
+  
+  
+  var line_action_json_format = {     //https://developers.line.me/ja/reference/messaging-api/#postback-action
+    "type": "postback",
+    "label": "",
+    "data": ""
+  };
+  line_actions = new Array();
+    
+  var MAX_LINE_LABEL_LENGTH = 20; //MAX20文字（全角でも半角でも２０文字）それ以上の場合は選択肢表示されない。
+  var date_devide;
+  
+  for(var i=0; i< no_candidate_day.length; i++){
+
+    line_actions[i] = JSON.parse( JSON.stringify(line_action_json_format));
+    
+    date_devide = no_candidate_day[i].date.split('-');
+    
+    line_actions[i].label = ( date_devide[1] + "/" + date_devide[2] + " "  
+                             + no_candidate_day[i].time + " " 
+                             + no_candidate_day[i].pickup_people + "さん" )
+                            .substr(0, MAX_LINE_LABEL_LENGTH);
+
+    line_actions[i].data = CONFIRM_WORD + no_candidate_day[i].kintone_id;
+    //line_actions[i].data = no_candidate_day[i].kintone_id;
+  }
+
+  
+
+
+
+  var postData = {
+      "replyToken": line_reply_token,
+      "messages": [{
+        "type": "template",
+        "altText": "送迎可能日を選択",
+        "template": {
+          "type": "buttons",
+//          "thumbnailImageUrl": "https://~.png",
+//          "title": "送迎支援システム",
+          "text": "送迎可能日を選択お願いします",
+//          "actions": JSON.stringify( line_actions )
+          "actions": line_actions
+        }
+      }]
+  };
+              
+  fetch_data(postData);
+}
+
+
+function show_line_confirm_template(){
+  
+  console.log("START show_line_confirm_template");
+  console.log("input_line_message="+input_line_message);
+  console.log("input_kintone_id="+input_kintone_id);
+  
+  var show_text = "この日時で正しいですか？\n\n"
+                  + "　日時: " + input_date + " " + input_time + "\n"
+                  + "　送迎対象者: " + input_pickup_people + "さん";
+                // + "場所: " + input_sender;
+  
+
+  var postData = {
+      "replyToken": line_reply_token,
+      "messages": [{
+        "type": "template",
+        "altText": "選択日確認",
+        "template": {
+          "type": "confirm",
+//          "text": "この日で正しいですか？",
+          "text": show_text,
+          "actions": [
+            {
+              "type": "postback",
+              "label": "YES",
+              "data": input_kintone_id
+            },
+            {
+              "type": "postback",
+              "label": "NO",
+              "data": CANCEL_WORD+input_kintone_id
+            }
+          ]
+        }
+      }]
+  };
+              
+  fetch_data(postData);
+}
+
+
+
+function post_back(e) {
+  console.log("post_back");
+  
+  var data = e.postback.data;
+  var replay_text = "";
+  if (data == "postback selected") {
+    replay_text = data;
+  } else if (data == "datetimepicker selected") {
+    replay_text = data + "\n" + e.postback.params['datetime'];
+  }
+
+  var postData = {
+    "replyToken": e.replyToken,
+    "messages": [{
+      "type": "text",
+      "text": replay_text + "\n" + JSON.stringify(e.postback)
+    }]
+  };
+  fetch_data(postData);
+}
+
+function fetch_data(postData) {
+  console.log("fetch_data");
+  
+      var headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + process.env.LINE_CHANNEL_ACCESS_TOKEN
+    }
+
+  request({
+    url: LINE_REPLY_URL,
+//    url: "https://api.line.me/v2/bot/message/reply",
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(postData),
+//    json: true
+  });
+  
+  line_reply_mode = -1;
+  console.log("fetch_data finish");
+  
+}
+/* -------------- */
 
 
 

@@ -38,6 +38,15 @@ module.exports.update_data2db = function(req, res){
   return update_data( dfd_update_data2db, input_date, input_time, input_pickup_people, input_destination, input_sender );
 }
 
+module.exports.update_id2db = function(req, res){
+  
+  var dfd_update_id2db = new $.Deferred;
+  
+  return update_id2sender( dfd_update_id2db, input_kintone_id, input_sender );
+}
+
+
+
 module.exports.set_account_data2db = function(req, res){
   set_account( new_follower_line_id );
 }
@@ -52,6 +61,20 @@ module.exports.get_account_all = function(req, res){
   return get_account_data_all( dfd_get_account_all );
   
 }
+module.exports.get_vacant_day = function(req, res){
+  var dfd_get_vacant_day = new $.Deferred;
+  
+  return get_vacant_days( dfd_get_vacant_day );
+  
+}
+
+module.exports.check_still_vacant = function(req, res){
+  var dfd_check_still_vacant = new $.Deferred;
+  
+  return is_sender( dfd_check_still_vacant );
+  
+}
+
 
 /* ------------------------------------------------------------
    kintoneへデータをセットする
@@ -142,6 +165,97 @@ function delete_account( id ){    //new_follower_line_id
 }
 
 /* ------------------------------------------------------------
+   input_kintone_idのデータレコードにsenderがセットされているかチェックする
+  ------------------------------------------------------------- */
+function is_sender( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  if( input_kintone_id <= 0 ){
+    console.log("bad input_kintone_id. input_kintone_id="+input_kintone_id);
+    return dfd.resolve();
+  }
+  
+  
+  var raw_query = "$id=\"" + input_kintone_id + "\"";      //$id="15"
+  //var raw_query = "date!=\"\" and sender=\"\"";
+  //var raw_query = "line_id=" + "\"" + new_follower_line_id + "\"" ;
+  
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID + "&query=" + encodeURIComponent( raw_query );
+
+  
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[is_sender]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num != 1 ){
+        console.log("[is_sender] invalid! num="+num);
+        input_kintone_id = -1;
+        line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
+        return dfd.resolve();
+      }
+      
+      
+      console.log("body.records[0].sender.value = " + body.records[0].sender.value);
+      
+      if( body.records[0].sender.value != "" ){
+        input_kintone_id = -1;
+        line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
+      }
+      else{
+        input_date = body.records[0].date.value;
+        input_time = body.records[0].time.value;
+        input_pickup_people = body.records[0].pickup_people.value;   //送迎対象者(送迎される人)
+        input_sender = body.records[0].sender.value;          //送迎する人""のはず
+        input_destination = body.records[0].destination.value;
+        
+        console.log("NO sender. Good!");
+      }
+      
+      return dfd.resolve();
+    } else {
+      input_kintone_id = -1;
+      console.log('[get_vacant_days]http error: '+ response.statusCode);
+      line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+  
+}
+
+
+/* ------------------------------------------------------------
+   input_kintone_idのデータレコードにinput_senderを追加する
+  ------------------------------------------------------------- */
+function update_id2sender( dfd, kintone_id, sender ){
+  
+  return update_id( dfd, kintone_id, sender );
+}
+
+
+/* ------------------------------------------------------------
    date/time/pickup_peopleと同一のデータレコードにsenderを追加する
   ------------------------------------------------------------- */
 function update_data( dfd, date, time, pickup_people, destination, sender ){
@@ -150,8 +264,8 @@ function update_data( dfd, date, time, pickup_people, destination, sender ){
   
   select_id()    //引数付けるとdeffer使えないようだ
   .done(function(){
-    update_id( kintone_id, input_sender );
-    return dfd.resolve();
+    return update_id( dfd, kintone_id, input_sender );
+    //return dfd.resolve();
   });  
   
   return dfd.promise();
@@ -302,17 +416,94 @@ function select_account_id(){   //
     
 }
 
+/* ------------------------------------------------------------
+   kintoneから送迎対象者未決定の日を抽出する
+  ------------------------------------------------------------- */
+function get_vacant_days( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  var raw_query = "date!=\"\" and sender=\"\"";
+  //var raw_query = "line_id=" + "\"" + new_follower_line_id + "\"" ;
+  
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID + "&query=" + encodeURIComponent( raw_query );
+
+  
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_vacant_days]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      init_no_candidate_day();
+      
+      if( num == 0 ){
+        console.log("[get_vacant_days] NO vacant day! Thanks!!");
+        return dfd.resolve();
+      }
+      
+      for (var i = 0; i < num; i++){
+        day = new NotDecidedDay();
+        
+        day.date = body.records[i].date.value;
+        day.time = body.records[i].time.value;
+        day.pickup_people = body.records[i].pickup_people.value;
+        day.sender = body.records[i].sender.value;  //空のはず
+        day.destination =  body.records[i].destination.value;
+        day.kintone_id = body.records[i].$id.value;
+        
+        no_candidate_day[i] = day;
+        
+        //console.log("no_candidate_day["+i+"]");
+        //console.log(no_candidate_day[i]);
+      }
+        
+    
+      return dfd.resolve();
+    } else {
+      console.log('[get_vacant_days]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+}
+
+function init_no_candidate_day(){
+  if( no_candidate_day.length != 0 ){
+    while( no_candidate_day.length > 0 ){
+      no_candidate_day.pop();
+    }
+  }
+}
 
 
 
 /* ------------------------------------------------------------
    kintoneの特定のIDのデータをupdateする
   ------------------------------------------------------------- */
-function update_id( kintone_id, sender ){
+function update_id( dfd_updateid, kintone_id, sender ){
   
   console.log("id="+kintone_id+"  sender="+sender);
   
-  var dfd_updateid = new $.Deferred;
+  //var dfd_updateid = new $.Deferred;
   
   if( kintone_id == -1 ){
     line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;

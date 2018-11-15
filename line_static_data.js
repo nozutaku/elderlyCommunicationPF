@@ -103,3 +103,6 @@ global.smile_emoji = [
   EMOJI_SMILE7
 ];
 
+global.EMOJI_CAR = 0x100049;
+
+
