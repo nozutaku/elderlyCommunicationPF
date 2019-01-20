@@ -35,6 +35,9 @@ global.line_reply_mode;
 global.input_line_message;
 global.line_reply_token;
 
+global.WORD_SENDER_NOT_DECIDED = "送迎者未決定";
+global.WORD_DESTINATION_NOT_DECIDED = "場所未";
+
 //line_reply_modeへ格納する値
 global.LINE_MODE_1 = 1;
 
@@ -42,6 +45,7 @@ global.LINE_MODE_ACCEPT_REPLY = 2;
 global.LINE_MODE_DENEY_REPLY_NO_DATA = 3;
 global.LINE_MODE_DENEY_REPLY_ALREADY_EXIST = 4;
 global.LINE_MODE_DENEY_REPLY_CANCEL = 5;
+global.LINE_MODE_DENEY_REPLY_SHOW_CALENDER = 6;
 
 
 
@@ -52,6 +56,8 @@ global.LINE_MODE_UNFOLLOW = 9;
 global.new_follower_line_id;
 
 global.line_broadcast_account;
+
+global.URL_CALENDER = "https://v2urc.cybozu.com/k/22/";
 
 
 global.NotDecidedDay = function( ){
@@ -69,8 +75,10 @@ global.no_candidate_day = new Array();
 var POSTBACK_TYPE_NEED_CONFIRM = 1;
 var POSTBACK_TYPE_REGISTER = 2;
 var POSTBACK_TYPE_CANCEL = 3;
+var POSTBACK_TYPE_MANY_VACANT = 4;
 
 global.CONFIRM_WORD = "CHOOSE_";
+global.MANY_VACANT_WORD = "MANYVACANT";
 global.CANCEL_WORD = "CANCEL_";
 
 
@@ -173,7 +181,10 @@ app.post("/api/command/:command", function(req, res, next){
     
     
     input_pickup_people = req.query.pickup_people;
-    input_destination = "";
+    
+    /* ★★★ToDo twilioから送迎先をもらうとここでセット★★★ */
+    input_destination = WORD_DESTINATION_NOT_DECIDED;
+
     
     console.log("------");
     console.log("input_date="+input_date);
@@ -394,6 +405,14 @@ app.post('/webhook', function(req, res, next){
         console.log("cancel");
         
       }
+      else if( postback_type == POSTBACK_TYPE_MANY_VACANT ){
+        input_kintone_id = -1;
+        line_reply_mode = LINE_MODE_DENEY_REPLY_SHOW_CALENDER;
+        input_line_message = "";
+        line_command.send_line_reply();
+        console.log("many vacant");
+      }
+              
       else{
         //無いはず
         console.log("error postback type");
@@ -423,6 +442,10 @@ function check_postback_type( str ){
   if( str.indexOf( CONFIRM_WORD ) != -1 ){
     input_kintone_id = str.substr( CONFIRM_WORD.length, str.length-CONFIRM_WORD.length );
     ret = POSTBACK_TYPE_NEED_CONFIRM;
+  }
+  else if( str.indexOf( MANY_VACANT_WORD ) != -1 ){
+    input_kintone_id = str.substr( MANY_VACANT_WORD.length, str.length-MANY_VACANT_WORD.length );
+    ret = POSTBACK_TYPE_MANY_VACANT;
   }
   else if( str.indexOf( CANCEL_WORD ) != -1 ){
     input_kintone_id = str.substr( CANCEL_WORD.length, str.length-CANCEL_WORD.length );

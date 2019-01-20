@@ -236,6 +236,13 @@ function set_line_reply_message( mode, input_message ){
     info2.packageId = '1';
     info2.stickerId = '13';
     pushmessage[1] = info2;  
+  } 
+  else if( mode == LINE_MODE_DENEY_REPLY_SHOW_CALENDER ){
+    info1 = new PushMessage();
+    info1.type = 'text';
+    info1.text = "その他はカレンダーから登録してください\n"
+                  +URL_CALENDER;
+    pushmessage[0] = info1;
   }
   else if( mode == LINE_MODE_NOTIFY_CORRECT_FORMAT ){
     info1 = new PushMessage();
@@ -258,7 +265,7 @@ function set_line_reply_message( mode, input_message ){
     info3.type = 'text';
     info3.text = 
       "本地区の予約状況は下記で参照可能です\n"
-      + "https://v2urc.cybozu.com/k/22/";
+      + URL_CALENDER;
     pushmessage[2] = info3;
     
   }
@@ -325,8 +332,8 @@ function make_broadcast_message( num, date, time, pickup_people, destination ){
   var text;
   
   if( num == 1 ){
-    text = "下記人からリクエスト有り。\n行ける人いますでしょうか？\n"
-            + "下記をコピペしてLINEで返答すると簡単です";
+    text = "下記人からリクエスト有り。\n行ける人いますでしょうか？\n\n"
+            + "「リスト」と入力すると送迎未決定リストから選択することが可能です。\nもしくは、下記をコピペしてLINEで返答することもできます。";
   }
   else if( num == 2 ){
     text = "日: " + date + " " + "\n"
@@ -454,9 +461,19 @@ function show_line_button_template(){
   line_actions = new Array();
     
   var MAX_LINE_LABEL_LENGTH = 20; //MAX20文字（全角でも半角でも２０文字）それ以上の場合は選択肢表示されない。
+  var MAX_LINE_CHOICE_LENGTH = 4; //MAX4件までしかリスト表示されないようだ
   var date_devide;
+  var show_line_choice;           //LINE選択肢表示件数
   
-  for(var i=0; i< no_candidate_day.length; i++){
+  if( no_candidate_day.length >= MAX_LINE_CHOICE_LENGTH ){
+    show_line_choice = MAX_LINE_CHOICE_LENGTH;
+  }
+  else{
+    show_line_choice = no_candidate_day.length;
+  }
+  
+  for(var i=0; i< show_line_choice; i++){
+//  for(var i=0; i< no_candidate_day.length; i++){
 
     line_actions[i] = JSON.parse( JSON.stringify(line_action_json_format));
     
@@ -471,7 +488,10 @@ function show_line_button_template(){
     //line_actions[i].data = no_candidate_day[i].kintone_id;
   }
 
-  
+  if( no_candidate_day.length >= MAX_LINE_CHOICE_LENGTH ){
+    line_actions[MAX_LINE_CHOICE_LENGTH-1].label = "他" + (no_candidate_day.length-MAX_LINE_CHOICE_LENGTH+1) + "件あり";
+    line_actions[MAX_LINE_CHOICE_LENGTH-1].data = MANY_VACANT_WORD;  //★★★ここ対処必要
+  }
 
 
 

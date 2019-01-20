@@ -99,6 +99,9 @@ function set_data( input_date, input_time, input_pickup_people, input_destinatio
       "pickup_people": {
         "value": input_pickup_people
       },
+      "sender": {
+        "value": WORD_SENDER_NOT_DECIDED
+      },
       "destination":{
         "value": input_destination
       }
@@ -217,7 +220,8 @@ function is_sender( dfd ){
       
       console.log("body.records[0].sender.value = " + body.records[0].sender.value);
       
-      if( body.records[0].sender.value != "" ){
+//      if( body.records[0].sender.value != "" ){
+      if( body.records[0].sender.value != WORD_SENDER_NOT_DECIDED ){
         input_kintone_id = -1;
         line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
       }
@@ -423,7 +427,8 @@ function get_vacant_days( dfd ){
   
   var select_url = process.env.KINTONE_URL_MULTI;
   
-  var raw_query = "date!=\"\" and sender=\"\"";
+  //var raw_query = "date!=\"\" and sender=\"\"";
+  var raw_query = "date!=\"\" and sender=\"送迎者未決定\"";    //WORD_SENDER_NOT_DECIDED
   //var raw_query = "line_id=" + "\"" + new_follower_line_id + "\"" ;
   
   console.log("raw_query = " + raw_query );
@@ -465,7 +470,7 @@ function get_vacant_days( dfd ){
         day.date = body.records[i].date.value;
         day.time = body.records[i].time.value;
         day.pickup_people = body.records[i].pickup_people.value;
-        day.sender = body.records[i].sender.value;  //空のはず
+        day.sender = body.records[i].sender.value;  //WORD_SENDER_NOT_DECIDEDのはず
         day.destination =  body.records[i].destination.value;
         day.kintone_id = body.records[i].$id.value;
         
