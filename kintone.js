@@ -7,7 +7,7 @@
     heroku config:set CYBOZU_APP_ID=xxxx
 ******************************************/
 
-var DEBUG = 1;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
+var DEBUG = 0;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
 var LOCAL_DEBUG = 0;    //1=Local node.js利用   0=herokuサーバー利用(default)  
 
 
@@ -87,6 +87,10 @@ module.exports.get_pickup_people_name = function(req, res){
   return get_pickup_people_name_inner( dfd_get_pickup_people_name );
 }
 
+module.exports.get_input_sender_name = function(req, res){
+  var dfd_get_input_sender_name = new $.Deferred;
+  return get_input_sender_name_inner( dfd_get_input_sender_name );
+}
 
 
 
@@ -870,5 +874,57 @@ function get_pickup_people_name_inner( dfd ){
 }
 
 
+/* ------------------------------------------------------------
+   送迎者LINE番号(input_sender_line_id)から送迎者名(input_sender)を取得する
+  ------------------------------------------------------------- */
+function get_input_sender_name_inner( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  var raw_query = "line_id=" + "\"" + input_sender_line_id + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_ACCOUNT_APP_ID + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_ACCOUNT_API_TOKEN
+    },
+    json: true
+  };
 
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_input_sender_name_inner]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num == 1 ){
+        input_sender = body.records[0].name.value;
+        console.log("[get_input_sender_name_inner] input_sender = "+input_sender + "input_sender_line_id="+input_sender_line_id);
+      }
+      else{
+        input_sender = input_sender_line_id;    //エラーは番号を入れる仕様
+        console.log("[get_input_sender_name_inner] ERROR!!!! num="+num);
+      }
+      
+      return dfd.resolve();
+      
+    } else {
+      input_sender = input_sender_line_id;    //エラーは番号を入れる仕様
+      console.log('[get_input_sender_name_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
        

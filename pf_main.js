@@ -29,6 +29,7 @@ global.input_time;
 global.input_pickup_people;   //送迎対象者(送迎される人)
 global.input_pickup_people_num;   //送迎対象者(送迎される人)の番号
 global.input_sender;          //送迎する人
+global.input_sender_line_id;  //送迎する人のLINEID
 global.input_destination;
 global.input_destination_num; //場所の番号
 global.input_kintone_id;
@@ -390,15 +391,17 @@ app.post('/webhook', function(req, res, next){
         kintone_command.check_still_vacant()
         .done(function(){
           if( input_kintone_id > 0 ){
-              input_sender = "テストさん"; //★★★本番はLINEIDから取得する
-
-              kintone_command.update_id2db()
-              .done(function(){
-                input_line_message = "";
-                line_reply_mode = LINE_MODE_ACCEPT_REPLY;
-                line_command.send_line_reply();
-                console.log("kintone_command send");
-              });
+            
+            input_sender_line_id = event.source.userId;
+            
+            kintone_command.get_input_sender_name()
+            .then(kintone_command.update_id2db)
+            .done(function(){
+              input_line_message = "";
+              line_reply_mode = LINE_MODE_ACCEPT_REPLY;
+              line_command.send_line_reply();
+              console.log("kintone_command send");
+            });
 
 
           }
