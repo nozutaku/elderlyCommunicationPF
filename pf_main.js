@@ -27,9 +27,12 @@ var kintone_command = require('./kintone.js');
 global.input_date;
 global.input_time;
 global.input_pickup_people;   //送迎対象者(送迎される人)
+global.input_pickup_people_num;   //送迎対象者(送迎される人)の番号
 global.input_sender;          //送迎する人
 global.input_destination;
+global.input_destination_num; //場所の番号
 global.input_kintone_id;
+
 
 global.line_reply_mode;
 global.input_line_message;
@@ -161,6 +164,7 @@ app.post("/api/command/:command", function(req, res, next){
   console.log("originalUrl="+req.originalUrl);
   console.log("req.query.daytime="+req.query.daytime);
   console.log("req.query.pickup_people="+ req.query.pickup_people);
+  console.log("req.query.pickup_place="+ req.query.pickup_place);
   
   //  baseURL/register?daytime=xxx&pickup_people=zzz
   
@@ -180,27 +184,40 @@ app.post("/api/command/:command", function(req, res, next){
     input_time = daytime_str.substr(8,2) + ":" + daytime_str.substr(10,2);
     
     
-    input_pickup_people = req.query.pickup_people;
-    
-    /* ★★★ToDo twilioから送迎先をもらうとここでセット★★★ */
-    input_destination = WORD_DESTINATION_NOT_DECIDED;
+    input_pickup_people_num = req.query.pickup_people;
+    input_destination_num = req.query.pickup_place;
 
     
     console.log("------");
     console.log("input_date="+input_date);
     console.log("input_time="+input_time);
-    console.log("input_pickup_people="+input_pickup_people);
+    console.log("input_pickup_people_num="+input_pickup_people_num);
+    console.log("input_destination_num="+input_destination_num);
     console.log("------");
     
+    
+    //カレンダーDB登録→LINE配信
+    kintone_command.get_placename()
+    .then(kintone_command.get_pickup_people_name)
+    .then(kintone_command.set_data2db)
+    .then(kintone_command.get_account_all)
+    .then(line_command.send_line_broadcast)
+    .done(function(){
+      console.log("end");
+    });
+    
     //カレンダー(DB)へ登録
-    kintone_command.set_data2db();
-    console.log("kintone_command END");
+    //kintone_command.get_placename()
+    //.done(function(){
+    //  kintone_command.set_data2db();
+    //});
+    
     
     //送迎者募集
-    kintone_command.get_account_all()
-    .done(function(){
-      line_command.send_line_broadcast();
-    });
+    //kintone_command.get_account_all()
+    //.done(function(){
+    //  line_command.send_line_broadcast();
+    //});
     
     
   }

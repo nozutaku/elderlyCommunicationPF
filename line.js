@@ -10,6 +10,7 @@ var LOCAL_DEBUG = 0;    //1=Local node.js利用   0=herokuサーバー利用(def
 var DEBUG_ISTODAY_24H = 0;  //1=デバッグ用24時間データ全登録　0=リリース用
 
 var request = require('request');
+var $ = require('jquery-deferred');
 var static_data = require('./line_static_data.js');
 
 /*
@@ -100,6 +101,8 @@ function init_pushmessage(){
 */
 module.exports.send_line_broadcast = function(req, res){
   
+  var dfd_send_line_broadcast = new $.Deferred;
+  
 //function send_line_broadcast(){
   
   console.log("start send_line_broadcast");
@@ -132,6 +135,9 @@ module.exports.send_line_broadcast = function(req, res){
     
     send_notification( to_array, pushmessage, TYPE_MULTICAST );
 //    send_notification( to_array, pushmessage, TYPE_PUSH );  //送付先が一人の時はTYPE_PUSHでないとダメかも！？（途中で変わった？）
+  
+  return dfd_send_line_broadcast.resolve();
+
   
 }
 

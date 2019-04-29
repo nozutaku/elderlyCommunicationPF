@@ -28,7 +28,9 @@ var kintone_id;
    公開API
    ---------------------------------------------------------*/
 module.exports.set_data2db = function(req, res){
-  set_data( input_date, input_time, input_pickup_people, input_destination );
+  var dfd_set_data2db = new $.Deferred;
+  
+  return set_data( dfd_set_data2db, input_date, input_time, input_pickup_people, input_pickup_people_num, input_destination, input_destination_num );
 }
 
 module.exports.update_data2db = function(req, res){
@@ -75,11 +77,23 @@ module.exports.check_still_vacant = function(req, res){
   
 }
 
+module.exports.get_placename = function(req, res){
+  var dfd_get_placename = new $.Deferred;
+  return get_placename_inner( dfd_get_placename );
+}
+
+module.exports.get_pickup_people_name = function(req, res){
+  var dfd_get_pickup_people_name = new $.Deferred;
+  return get_pickup_people_name_inner( dfd_get_pickup_people_name );
+}
+
+
+
 
 /* ------------------------------------------------------------
    kintoneへデータをセットする
   ------------------------------------------------------------- */
-function set_data( input_date, input_time, input_pickup_people, input_destination ){
+function set_data( dfd, input_date, input_time, input_pickup_people, input_pickup_people_num, input_destination, input_destination_num ){
   
   var options = {
     uri: process.env.KINTONE_URL,
@@ -99,11 +113,17 @@ function set_data( input_date, input_time, input_pickup_people, input_destinatio
       "pickup_people": {
         "value": input_pickup_people
       },
+      "pickup_people_num": {
+        "value": input_pickup_people_num
+      },
       "sender": {
         "value": WORD_SENDER_NOT_DECIDED
       },
       "destination":{
         "value": input_destination
+      },
+      "destination_num":{
+        "value": input_destination_num
       }
     }
   }
@@ -112,10 +132,15 @@ function set_data( input_date, input_time, input_pickup_people, input_destinatio
 request.post(options, function(error, response, body){
   if (!error && response.statusCode == 200) {
     console.log("[set_data]success!");
+    return dfd.resolve();
   } else {
     console.log('[set_data]http error: '+ response.statusCode);
+    return dfd.resolve();
   }
 });
+  
+return dfd.promise();
+  
   
 }
 
@@ -733,4 +758,117 @@ function get_account_data_all( dfd ){
   
   return dfd.promise();  
 }
+
+
+/* ------------------------------------------------------------
+   place番号からplace_nameを取得する
+  ------------------------------------------------------------- */
+function get_placename_inner( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  var raw_query = "place_num=" + "\"" + input_destination_num + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID_PLACE_DB + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN_PLACE_DB
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_placename_inner]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num == 1 ){
+        input_destination = body.records[0].place.value;
+        console.log("[get_placename_inner] input_destination = "+input_destination + "input_destination_num="+input_destination_num);
+      }
+      else{
+        input_destination = input_destination_num;    //エラーは番号を入れる仕様
+        console.log("[get_placename_inner] ERROR!!!! num="+num);
+      }
+      
+      return dfd.resolve();
+      
+    } else {
+      input_destination = input_destination_num;    //エラーは番号を入れる仕様
+      console.log('[get_placename_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
+
+
+/* ------------------------------------------------------------
+   送迎対象者(pickup_people)番号から送迎対象者名(pickup_people_name)を取得する
+  ------------------------------------------------------------- */
+function get_pickup_people_name_inner( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  var raw_query = "pickup_people_num=" + "\"" + input_pickup_people_num + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID_PICKUP_PEOPLE_DB + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN_PICKUP_PEOPLE_DB
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_placename_inner]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num == 1 ){
+        input_pickup_people = body.records[0].pickup_people.value;
+        console.log("[get_placename_inner] input_destination = "+input_destination + "input_destination_num="+input_destination_num);
+      }
+      else{
+        input_pickup_people = input_pickup_people_num;    //エラーは番号を入れる仕様
+        console.log("[get_pickup_people_name_inner] ERROR!!!! num="+num);
+      }
+      
+      return dfd.resolve();
+      
+    } else {
+      input_pickup_people = input_pickup_people_num;    //エラーは番号を入れる仕様
+      console.log('[get_pickup_people_name_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
+
+
+
        
