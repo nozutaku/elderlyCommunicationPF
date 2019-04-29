@@ -503,8 +503,10 @@ function line_message( event ){
     return;
   }
   
+  
   if( event.type == 'message' ){
     input_line_message = event.message.text;
+    input_sender_line_id = event.source.userId;
     console.log("input_message = "+ input_line_message);
     input_destination = " ";
     
@@ -512,13 +514,13 @@ function line_message( event ){
       console.log("input_date="+input_date);
       console.log("input_time="+input_time);
       console.log("input_pickup_people="+input_pickup_people);
-      console.log("input_sender="+input_sender);
+      //console.log("input_sender="+input_sender);
       
       
-      
-      kintone_command.update_data2db()
+      kintone_command.get_input_sender_name()
+      .then(kintone_command.update_data2db)
       .done(function(){
-        line_reply_mode = LINE_MODE_ACCEPT_REPLY;
+        //line_reply_mode = LINE_MODE_ACCEPT_REPLY;
         line_command.send_line_reply();
         console.log("kintone_command send");
       });
@@ -572,27 +574,21 @@ function line_message( event ){
 function is_valid_register_input( input_text ){
   /*
   + "日時: 〇〇\n"
-      + "送迎対象者: 〇〇\n"
-      + "あなたの名前: 〇〇\n\n"
+      + "送迎対象者: 〇〇"
       */
   var KEYWORD_DATE = "日";
   var KEYWORD_TIME = "時間"
   var KEYWORD_PLACE = "場所";
   var KEYWORD_PICKUPPEOPLE = "送迎対象者";
-  var KEYWORD_SENDER = "あなたの名前";
+  //var KEYWORD_SENDER = "あなたの名前";
 
 
-  //var str = "日時：2018/10/23 10:00\n場所: いそかわ\n人:野津"；
-  //var str = "日時：2018/10/23 10:00"；
-  //var str = "日時：2018/10/23 10:00";
-  //var str = "日時：2018/10/23 10時\n場所：いそかわ\n人：野津";
-  //var str = "日時：";
   
   //init
   input_date = "";
   input_time = "";
   input_pickup_people = "";
-  input_sender = "";
+  //input_sender = "";
   
 
   var arry = input_text.split("\n");
@@ -606,22 +602,7 @@ function is_valid_register_input( input_text ){
 
     var tmp = arry[i].split( /:|：|" "|"　"/ );
     
-    /*
-    if(tmp[0]==KEYWORD_DATE){
-      console.log("daytime＝"+tmp[1]);
-      
 
-      var tmp2 = tmp[1].replace("　", " ").split(" ");
-//      var tmp2 = tmp[1].replace("　", " ").split(" ",0);
-      //var tmp2 = tmp[1].split(" ");
-      
-      //var tmp2 = tmp[1].split(/" "|"　"|/);
-      input_date = tmp2[0];
-      input_time = tmp2[1];
-      console.log("tmp2[0]="+tmp2[0]);
-      console.log("tmp2[1]="+tmp2[1]);
-
-    } */
       
     if(tmp[0]==KEYWORD_DATE) {
       input_date = tmp[1].trim();
@@ -635,14 +616,15 @@ function is_valid_register_input( input_text ){
       input_pickup_people = tmp[1].trim();
       console.log("pickuppeople=" + tmp[1]);
     }
-    else if(tmp[0]==KEYWORD_SENDER){
-      input_sender = tmp[1].trim();
-      console.log("hito="+tmp[1]);
-    }
+//    else if(tmp[0]==KEYWORD_SENDER){
+//      input_sender = tmp[1].trim();
+//      console.log("hito="+tmp[1]);
+//    }
   }
   
   
-  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" ) && ( input_sender != "" )){
+  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" )){
+//  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" ) && ( input_sender != "" )){
     return(1);
   }
   else{

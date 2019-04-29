@@ -359,11 +359,12 @@ function select_id(){   //input_date, input_time, input_pickup_people, input_des
           kintone_id = body.records[i].$id.value;
           console.log("kintone_id = " + kintone_id );
           
-          if( body.records[i].sender.value == "" ){
+          if(( body.records[i].sender.value == "" )||(body.records[i].sender.value == WORD_SENDER_NOT_DECIDED)){
             line_reply_mode = LINE_MODE_ACCEPT_REPLY;
             console.log("line_reply_mode="+line_reply_mode);
           }
           else{
+            kintone_id = -1;    //error
             line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
             console.log("line_reply_mode="+line_reply_mode);
             //return dfd_select_id.reject();

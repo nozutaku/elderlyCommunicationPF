@@ -345,8 +345,7 @@ function make_broadcast_message( num, date, time, pickup_people, destination ){
     text = "日: " + date + " " + "\n"
             + "時間: " + time + " " + "\n"
             + "送迎対象者: " + pickup_people + "\n"
-            + "行先: " + destination + "\n"
-            + "あなたの名前: 〇〇";
+            + "行先: " + destination;
   }
   else if( num == 3 ){
     text = "よろしくお願いします"
