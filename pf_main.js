@@ -21,6 +21,7 @@ var querystring = require('querystring');
 
 var line_command = require('./line.js');
 var kintone_command = require('./kintone.js');
+var twilio_command = require('./twilio.js');
 
 
 
@@ -28,6 +29,8 @@ global.input_date;
 global.input_time;
 global.input_pickup_people;   //送迎対象者(送迎される人)
 global.input_pickup_people_num;   //送迎対象者(送迎される人)の番号
+global.input_pickup_people_callid;  //送迎対象者の電話番号
+global.input_pickup_people_auto_call_flg;   //送迎対象者への自動電話連絡有無
 global.input_sender;          //送迎する人
 global.input_sender_line_id;  //送迎する人のLINEID
 global.input_destination;
@@ -84,6 +87,22 @@ var POSTBACK_TYPE_MANY_VACANT = 4;
 global.CONFIRM_WORD = "CHOOSE_";
 global.MANY_VACANT_WORD = "MANYVACANT";
 global.CANCEL_WORD = "CANCEL_";
+
+global.phonecall_comment = "";   //電話で伝える文言
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 var app = express();
@@ -167,6 +186,8 @@ app.post("/api/command/:command", function(req, res, next){
   console.log("req.query.pickup_people="+ req.query.pickup_people);
   console.log("req.query.pickup_place="+ req.query.pickup_place);
   
+  res.status(200).end();
+  
   //  baseURL/register?daytime=xxx&pickup_people=zzz
   
   //twillioから送迎要求
@@ -225,6 +246,35 @@ app.post("/api/command/:command", function(req, res, next){
   
   /* ===============以下、テスト1 (postmanから送信) ============== */
   else if( req.params.command == "1"){
+    
+    input_pickup_people_callid = "0743787077";
+    input_pickup_people = "野津";
+    input_date = "2019-04-21";
+    input_time = "0900";
+    input_destination = "いきいきホール";
+    input_sender = "田口";
+    make_phonecall_comment();
+    
+    twilio_command.auto_call_to_pickup_people();
+    console.log("-- 1 end --\n");
+    
+  /*  
+  function make_phonecall_comment(){
+  
+  phonecall_comment
+  = input_pickup_people + "さんのお宅でしょうか。"
+  + "鹿ノ台自治連合会　送迎予約システムからのお知らせです。"
+  + input_date + input_time + input_destination + "への送迎は"
+  + input_sender + "さんがお迎えにあがる予定です"
+  + "予定が変更になれば速やかにご連絡お願いします"
+  + "では、失礼します";
+  
+  }
+  */
+    
+    
+    
+    /*
     console.log("line_command START");
     line_command.send_line_broadcast();
     console.log("line_command END");
@@ -237,6 +287,7 @@ app.post("/api/command/:command", function(req, res, next){
     
     kintone_command.set_data2db();
     console.log("kintone_command END");
+    */
     
   }
   /* ===============以下、テスト2 (postmanから送信)  ============== */
@@ -290,7 +341,7 @@ app.post("/api/command/:command", function(req, res, next){
   
   //update_database( req.params.command );
   
-  res.send("your command receive");
+  //res.send("your command receive");
 
 });
 
@@ -401,6 +452,10 @@ app.post('/webhook', function(req, res, next){
               line_reply_mode = LINE_MODE_ACCEPT_REPLY;
               line_command.send_line_reply();
               console.log("kintone_command send");
+              
+              if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
+                call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+              }
             });
 
 
@@ -510,7 +565,7 @@ function line_message( event ){
     console.log("input_message = "+ input_line_message);
     input_destination = " ";
     
-      if( is_valid_register_input( input_line_message )){
+    if( is_valid_register_input( input_line_message )){
       console.log("input_date="+input_date);
       console.log("input_time="+input_time);
       console.log("input_pickup_people="+input_pickup_people);
@@ -523,6 +578,11 @@ function line_message( event ){
         //line_reply_mode = LINE_MODE_ACCEPT_REPLY;
         line_command.send_line_reply();
         console.log("kintone_command send");
+        
+        if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
+          call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+        }
+        
       });
       
       
@@ -633,3 +693,45 @@ function is_valid_register_input( input_text ){
   
   
 }
+
+
+/* -----------------------------------------------------
+  送迎対象者に送迎予定の連絡を電話で伝える
+  ----------------------------------------------------- */
+function call_to_pickup_people( input_kintone_id ){
+  
+  kintone_command.get_schedule_data_from_1_ID()     //input_kintone_id から１件スケジュール全取得
+  .then(kintone_command.get_pickup_people_callid)   //input_pickup_people からpickup_peopleの電話番号を取得
+  .done(function(){
+    if(( input_pickup_people_callid.length > 0 ) && ( input_pickup_people_auto_call_flg > 0 )){
+      make_phonecall_comment();                       //電話で伝える文言作成
+      twilio_command.auto_call_to_pickup_people();    //電話発信
+      console.log("Reserve to call");
+    }
+    else{
+      console.log("NO need to call");
+    }
+
+    console.log("[call_to_pickup_people] END\n");
+  });
+    
+}
+
+/* -----------------------------------------------------
+  送迎対象者に自動電話連絡する文言生成
+  input_xxを用いて、phonecall_commentに格納する
+  ----------------------------------------------------- */
+function make_phonecall_comment(){
+  
+  phonecall_comment
+  = input_pickup_people + "さんのお宅でしょうか。\n"
+  + "鹿ノ台自治連合会　送迎予約システムからのお知らせです。\n"
+  + input_date + input_time + input_destination + "への送迎は"
+  + input_sender + "さんがお迎えにあがる予定です。\n"
+  + "予定が変更になれば速やかにご連絡お願いします。\n"
+  + "では、失礼します";
+  
+}
+
+
+

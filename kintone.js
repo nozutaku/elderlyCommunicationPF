@@ -26,11 +26,24 @@ var kintone_id;
 
 /* ---------------------------------------------------------
    公開API
+   
+   ４つのDB操作がある
+   　・スケジュールDB
+     ・送迎対象者DB
+     ・送迎者DB
+     ・送迎先（場所）DB
    ---------------------------------------------------------*/
+
+/* ====== スケジュールDB操作 ======= */
 module.exports.set_data2db = function(req, res){
   var dfd_set_data2db = new $.Deferred;
   
   return set_data( dfd_set_data2db, input_date, input_time, input_pickup_people, input_pickup_people_num, input_destination, input_destination_num );
+}
+
+module.exports.get_schedule_data_from_1_ID = function(req, res){   //1件分のスケジュールデータ読み出し
+  var dfd_get_schedule_data_from_1_ID = new $.Deferred;
+  return get_schedule_data_from_1_ID_inner( dfd_get_schedule_data_from_1_ID );
 }
 
 module.exports.update_data2db = function(req, res){
@@ -48,6 +61,34 @@ module.exports.update_id2db = function(req, res){
 }
 
 
+module.exports.get_vacant_day = function(req, res){
+  var dfd_get_vacant_day = new $.Deferred;
+  
+  return get_vacant_days( dfd_get_vacant_day );
+  
+}
+
+module.exports.check_still_vacant = function(req, res){
+  var dfd_check_still_vacant = new $.Deferred;
+  
+  return is_sender( dfd_check_still_vacant );
+  
+}
+
+
+
+/* ====== 送迎対象者DB操作 ======= */
+module.exports.get_pickup_people_name = function(req, res){
+  var dfd_get_pickup_people_name = new $.Deferred;
+  return get_pickup_people_name_inner( dfd_get_pickup_people_name );
+}
+
+module.exports.get_pickup_people_callid = function(req, res){
+  var dfd_get_pickup_people_callid = new $.Deferred;
+  return get_pickup_people_callid_inner( dfd_get_pickup_people_callid );
+}
+
+/* ====== 送迎者DB操作 ======= */
 
 module.exports.set_account_data2db = function(req, res){
   set_account( new_follower_line_id );
@@ -63,34 +104,20 @@ module.exports.get_account_all = function(req, res){
   return get_account_data_all( dfd_get_account_all );
   
 }
-module.exports.get_vacant_day = function(req, res){
-  var dfd_get_vacant_day = new $.Deferred;
-  
-  return get_vacant_days( dfd_get_vacant_day );
-  
-}
-
-module.exports.check_still_vacant = function(req, res){
-  var dfd_check_still_vacant = new $.Deferred;
-  
-  return is_sender( dfd_check_still_vacant );
-  
-}
-
-module.exports.get_placename = function(req, res){
-  var dfd_get_placename = new $.Deferred;
-  return get_placename_inner( dfd_get_placename );
-}
-
-module.exports.get_pickup_people_name = function(req, res){
-  var dfd_get_pickup_people_name = new $.Deferred;
-  return get_pickup_people_name_inner( dfd_get_pickup_people_name );
-}
 
 module.exports.get_input_sender_name = function(req, res){
   var dfd_get_input_sender_name = new $.Deferred;
   return get_input_sender_name_inner( dfd_get_input_sender_name );
 }
+
+
+/* ====== 送迎先（場所）DB操作 ======= */
+module.exports.get_placename = function(req, res){
+  var dfd_get_placename = new $.Deferred;
+  return get_placename_inner( dfd_get_placename );
+}
+
+
 
 
 
@@ -147,6 +174,81 @@ return dfd.promise();
   
   
 }
+
+/* ------------------------------------------------------------
+   input_kintone_idのデータレコードから
+   全データを読みだして input_xxにセット
+  ------------------------------------------------------------- */
+function get_schedule_data_from_1_ID_inner( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  if( input_kintone_id <= 0 ){
+    console.log("bad input_kintone_id. input_kintone_id="+input_kintone_id);
+    return dfd.resolve();
+  }
+  
+  
+  var raw_query = "$id=\"" + input_kintone_id + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_schedule_data_from_1_ID_inner]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num != 1 ){
+        console.log("[get_schedule_data_from_1_ID_inner] invalid! num="+num);
+        return dfd.resolve();
+      }
+      
+      input_date = body.records[0].date.value;
+      input_time = body.records[0].time.value;
+      input_pickup_people = body.records[0].pickup_people.value;   //送迎対象者(送迎される人)
+      input_pickup_people_num = body.records[0].pickup_people_num;  //値が格納されていない場合もあり
+      input_sender = body.records[0].sender.value;          //送迎する人""のはず
+      input_destination = body.records[0].destination.value;
+      input_destination_num = body.records[0].destination_num;    //値が格納されていない場合もあり
+      
+      console.log( "input_date = " + input_date );
+      console.log( "input_time = " + input_time );
+      console.log( "input_pickup_people = " + input_pickup_people );
+      console.log( "input_pickup_people_num = " + input_pickup_people_num );
+      console.log( "input_sender = " + input_sender );
+      console.log( "input_destination = " + input_destination );
+      console.log( "input_destination_num = " + input_destination_num );
+      
+      
+      return dfd.resolve();
+      
+    } else {
+      console.log('[get_schedule_data_from_1_ID_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
+
+
 
 /* ------------------------------------------------------------
    kintoneへデータをセットする（アカウントDB）
@@ -361,10 +463,12 @@ function select_id(){   //input_date, input_time, input_pickup_people, input_des
           
           if(( body.records[i].sender.value == "" )||(body.records[i].sender.value == WORD_SENDER_NOT_DECIDED)){
             line_reply_mode = LINE_MODE_ACCEPT_REPLY;
+            input_kintone_id = kintone_id;
             console.log("line_reply_mode="+line_reply_mode);
           }
           else{
             kintone_id = -1;    //error
+            input_kintone_id = kintone_id;
             line_reply_mode = LINE_MODE_DENEY_REPLY_ALREADY_EXIST;
             console.log("line_reply_mode="+line_reply_mode);
             //return dfd_select_id.reject();
@@ -377,11 +481,13 @@ function select_id(){   //input_date, input_time, input_pickup_people, input_des
         
       }
       kintone_id = -1;    //error
+      input_kintone_id = kintone_id;
     
       return dfd_select_id.resolve();
     } else {
       console.log('[select_id]http error: '+ response.statusCode);
       line_reply_mode = LINE_MODE_DENEY_REPLY_NO_DATA;
+      input_kintone_id = -1;
       return dfd_select_id.resolve();
     }
   });  
@@ -875,6 +981,77 @@ function get_pickup_people_name_inner( dfd ){
 }
 
 
+
+/*---- */
+/* ------------------------------------------------------------
+   送迎対象者名(pickup_people_name)から電話番号(input_pickup_people_callid)を取得する
+  ------------------------------------------------------------- */
+function get_pickup_people_callid_inner( dfd ){
+  
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  var raw_query = "pickup_people=" + "\"" + input_pickup_people + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID_PICKUP_PEOPLE_DB + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN_PICKUP_PEOPLE_DB
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_pickup_people_callid_inner]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num == 1 ){
+        input_pickup_people_callid = body.records[0].pickup_people_phoneid.value;
+        if( body.records[0].auto_call.value.length > 0 ){
+          input_pickup_people_auto_call_flg = 1;
+        }
+        else{
+          input_pickup_people_auto_call_flg = 0;
+        }
+        //input_pickup_people_auto_call_flg = body.records[0].auto_call.value;
+        console.log("[get_pickup_people_callid_inner] "+input_pickup_people + " TEL number="+input_pickup_people_callid);
+        console.log("[get_pickup_people_callid_inner] "+input_pickup_people_auto_call_flg);
+      }
+      else{
+        input_pickup_people_callid = "";
+        input_pickup_people_auto_call_flg = 0;
+        console.log("[get_pickup_people_callid_inner] ERROR!!!! num="+num);
+      }
+      
+      return dfd.resolve();
+      
+    } else {
+      input_pickup_people_callid = "";
+      input_pickup_people_auto_call_flg = 0;
+      console.log('[get_pickup_people_callid_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
+
+/* ---- */
+
+
+
+
 /* ------------------------------------------------------------
    送迎者LINE番号(input_sender_line_id)から送迎者名(input_sender)を取得する
   ------------------------------------------------------------- */
@@ -928,4 +1105,11 @@ function get_input_sender_name_inner( dfd ){
   return dfd.promise();  
   
 }
+
+
+//
+
+
+
+
        
