@@ -528,8 +528,8 @@ function show_line_confirm_template(){
   
   var show_text = "この日時で正しいですか？\n\n"
                   + "　日時: " + input_date + " " + input_time + "\n"
-                  + "　送迎対象者: " + input_pickup_people + "さん";
-                // + "場所: " + input_sender;
+                  + "　送迎対象者: " + input_pickup_people + "さん\n"
+                  + "　場所: " + input_destination;
   
 
   var postData = {
