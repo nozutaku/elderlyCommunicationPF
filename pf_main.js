@@ -3,6 +3,8 @@
 //===== 設定(ここから) =======================================
 var IS_HEROKU = 1;		//デバッグオプション
 var DEBUG = 1;
+
+global.SEARCH_TEL_NUMBER_PREFERED  = 0;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
 //===== 設定(ここまで) =======================================
 
 
@@ -22,6 +24,7 @@ var querystring = require('querystring');
 var line_command = require('./line.js');
 var kintone_command = require('./kintone.js');
 var twilio_command = require('./twilio.js');
+
 
 
 
@@ -90,7 +93,7 @@ global.CANCEL_WORD = "CANCEL_";
 
 global.phonecall_comment = "";   //電話で伝える文言
 
-
+global.flg_need_to_search_pickup_people_name;  //送迎対象者番号からの検索必要有無フラグ(pickup_people_name検索時に利用)
 
 
 
@@ -185,6 +188,10 @@ app.post("/api/command/:command", function(req, res, next){
   console.log("req.query.daytime="+req.query.daytime);
   console.log("req.query.pickup_people="+ req.query.pickup_people);
   console.log("req.query.pickup_place="+ req.query.pickup_place);
+  console.log("req.query.caller_no=" + req.query.caller_no + "+部分要注意"); //"+81"のプラスがurlencodeされずに受信して強制的にurlencodeされて変になってる.
+  //req.originalUrlから独自に取り出そう
+  //originalUrl=/api/command/register?daytime=201905010800&pickup_people=100&caller_no=+819080683055&pickup_place=41
+  
   
   res.status(200).end();
   
@@ -207,6 +214,8 @@ app.post("/api/command/:command", function(req, res, next){
     
     
     input_pickup_people_num = req.query.pickup_people;
+    //input_caller_no = req.query.caller_no;    //送迎依頼者の電話番号
+    input_caller_no = get_caller_no_from_url( req.originalUrl );
     input_destination_num = req.query.pickup_place;
 
     
@@ -214,13 +223,15 @@ app.post("/api/command/:command", function(req, res, next){
     console.log("input_date="+input_date);
     console.log("input_time="+input_time);
     console.log("input_pickup_people_num="+input_pickup_people_num);
+    console.log("input_caller_no="+input_caller_no);
     console.log("input_destination_num="+input_destination_num);
     console.log("------");
     
     
     //カレンダーDB登録→LINE配信
     kintone_command.get_placename()
-    .then(kintone_command.get_pickup_people_name)
+    .then(kintone_command.get_pickup_people_name_from_caller_no)
+    .then(kintone_command.get_pickup_people_name_from_pickup_people_num)
     .then(kintone_command.set_data2db)
     .then(kintone_command.get_account_all)
     .then(line_command.send_line_broadcast)
@@ -733,5 +744,58 @@ function make_phonecall_comment(){
   
 }
 
+/* -----------------------------------------------------
+  [UTILITY]
+  URL内のパラメータからcaller_noを取り出す。（"caller_no="から"&pickup_place"の間に格納されている番号）
+  originalUrl=/api/command/register?daytime=201905010800&pickup_people=100&caller_no=+819080683055&pickup_place=41
+  ----------------------------------------------------- */
+function get_caller_no_from_url( url ){
+  var STRING_CALLERNO = "caller_no=";
+  var STRING_PICKUP_PLACE = "&pickup_place";
+  
+  var start = url.indexOf( STRING_CALLERNO );
+  var end = url.indexOf( STRING_PICKUP_PLACE );
+  
+  if( start < 0 ) return "";
+  if( end < 0 ) return "";
+  
+  //console.log("start= "+start);
+  //console.log("end = " + end);
+  
+  var len = (end+1)-(start+1+STRING_CALLERNO.length);
+  
+  //console.log("len="+ len);
+  return change_nationalnumber_to_jpphonenumber( url.substr(start+STRING_CALLERNO.length, len));
+  
+}
+
+/* -----------------------------------------------------
+  [UTILITY]
+  日本の電話番号から国際電話番号に変換。先頭の0を除いて+81をつける
+  ----------------------------------------------------- */
+// 参考→→→twilio.jsにchange_jpphonenumber_to_nationalnumber( jp_phone_number )有り。
+
+
+/* -----------------------------------------------------
+  [UTILITY]
+  国際番号(+81付)から日本の電話番号に変換。先頭の+81を除いて0をつける
+  ----------------------------------------------------- */
+function change_nationalnumber_to_jpphonenumber( national_number ){
+  var jp_phone_number;
+  var PHONE_COUNTRY_CODE_JP = "+81";
+
+  
+  if( national_number.indexOf(PHONE_COUNTRY_CODE_JP) != -1 ){
+    jp_phone_number = national_number.replace( PHONE_COUNTRY_CODE_JP, '0');
+  }
+  else{
+    console.log("[change_nationalnumber_to_jpphonenumber]ERROR!!!!!!!!!!!!!!!!!!!!!!!!");
+    jp_phone_number = national_number;
+  }
+  
+  console.log("jp_phone_number="+jp_phone_number);
+  return jp_phone_number;
+
+}
 
 

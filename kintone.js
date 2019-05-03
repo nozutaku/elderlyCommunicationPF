@@ -7,7 +7,7 @@
     heroku config:set CYBOZU_APP_ID=xxxx
 ******************************************/
 
-var DEBUG = 0;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
+var DEBUG = 1;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
 var LOCAL_DEBUG = 0;    //1=Local node.js利用   0=herokuサーバー利用(default)  
 
 
@@ -78,9 +78,16 @@ module.exports.check_still_vacant = function(req, res){
 
 
 /* ====== 送迎対象者DB操作 ======= */
-module.exports.get_pickup_people_name = function(req, res){
-  var dfd_get_pickup_people_name = new $.Deferred;
-  return get_pickup_people_name_inner( dfd_get_pickup_people_name );
+module.exports.get_pickup_people_name_from_pickup_people_num = function(req, res){
+  var dfd_get_pickup_people_name_from_pickup_people_num = new $.Deferred;
+  
+  return get_pickup_people_name_from_pickup_people_num_inner( dfd_get_pickup_people_name_from_pickup_people_num );
+}
+
+module.exports.get_pickup_people_name_from_caller_no = function(req, res){
+  var dfd_get_pickup_people_name_from_caller_no = new $.Deferred;
+
+  return get_pickup_people_name_from_caller_no_inner( dfd_get_pickup_people_name_from_caller_no );
 }
 
 module.exports.get_pickup_people_callid = function(req, res){
@@ -929,9 +936,16 @@ function get_placename_inner( dfd ){
 /* ------------------------------------------------------------
    送迎対象者(pickup_people)番号から送迎対象者名(pickup_people_name)を取得する
   ------------------------------------------------------------- */
-function get_pickup_people_name_inner( dfd ){
+function get_pickup_people_name_from_pickup_people_num_inner( dfd ){
+//function get_pickup_people_name_inner( dfd ){
   
   var select_url = process.env.KINTONE_URL_MULTI;
+  
+  if( flg_need_to_search_pickup_people_name == 0 ){
+    //nothings to do.
+    console.log("[get_pickup_people_name_from_pickup_people_num_inner] nothings to do");
+    return dfd.resolve();
+  }
   
   var raw_query = "pickup_people_num=" + "\"" + input_pickup_people_num + "\"";
   console.log("raw_query = " + raw_query );
@@ -949,7 +963,7 @@ function get_pickup_people_name_inner( dfd ){
 
   request.get(options, function(error, response, body){
     if (!error && response.statusCode == 200) {
-      console.log("[get_placename_inner]success!");
+      console.log("[get_pickup_people_name_from_pickup_people_num]success!");
       
       //console.log("body");
       //console.log(body);
@@ -960,18 +974,18 @@ function get_pickup_people_name_inner( dfd ){
       
       if( num == 1 ){
         input_pickup_people = body.records[0].pickup_people.value;
-        console.log("[get_placename_inner] input_destination = "+input_destination + "input_destination_num="+input_destination_num);
+        console.log("[get_pickup_people_name_from_pickup_people_num] input_pickup_people = "+input_pickup_people);
       }
       else{
         input_pickup_people = input_pickup_people_num;    //エラーは番号を入れる仕様
-        console.log("[get_pickup_people_name_inner] ERROR!!!! num="+num);
+        console.log("[get_pickup_people_name_from_pickup_people_num] ERROR!!!! num="+num);
       }
       
       return dfd.resolve();
       
     } else {
       input_pickup_people = input_pickup_people_num;    //エラーは番号を入れる仕様
-      console.log('[get_pickup_people_name_inner]http error: '+ response.statusCode);
+      console.log('[get_pickup_people_name_from_pickup_people_num]http error: '+ response.statusCode);
       return dfd.resolve();
     }
   });  
@@ -980,9 +994,69 @@ function get_pickup_people_name_inner( dfd ){
   
 }
 
+/* ------------------------------------------------------------
+   送迎対象者の電話発信者番号(caller_no)から送迎対象者名(pickup_people_name)を取得する。
+   
+   ただし、SEARCH_TEL_NUMBER_PREFEREDが立っていなければ本関数では検索しない。
+  ------------------------------------------------------------- */
+function get_pickup_people_name_from_caller_no_inner( dfd ){
+  var select_url = process.env.KINTONE_URL_MULTI;
+  
+  flg_need_to_search_pickup_people_name = 1;  //初期化。送迎対象者番号からの検索は必要
+  
+  if(! SEARCH_TEL_NUMBER_PREFERED ){
+    return dfd.resolve();
+  }
+  
 
+  
+  var raw_query = "pickup_people_phoneid=" + "\"" + input_caller_no + "\"";
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID_PICKUP_PEOPLE_DB + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+  
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN_PICKUP_PEOPLE_DB
+    },
+    json: true
+  };
 
-/*---- */
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[get_pickup_people_name_from_caller_no]success!");
+      
+      //console.log("body");
+      //console.log(body);
+      
+      //ID抽出
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      if( num == 1 ){
+        input_pickup_people = body.records[0].pickup_people.value;
+        flg_need_to_search_pickup_people_name = 0;  //送迎対象者番号からの検索は不要
+        console.log("[get_pickup_people_name_from_caller_no] input_pickup_people = "+input_pickup_people);
+      }
+      else{
+        console.log("[get_pickup_people_name_from_caller_no] ERROR!!!! num="+num);
+      }
+      
+      return dfd.resolve();
+      
+    } else {
+      input_pickup_people = input_pickup_people_num;    //エラーは番号を入れる仕様
+      console.log('[get_pickup_people_name_from_caller_no]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });  
+  
+  return dfd.promise();  
+  
+}
+
 /* ------------------------------------------------------------
    送迎対象者名(pickup_people_name)から電話番号(input_pickup_people_callid)を取得する
   ------------------------------------------------------------- */
@@ -1047,7 +1121,7 @@ function get_pickup_people_callid_inner( dfd ){
   
 }
 
-/* ---- */
+
 
 
 
@@ -1107,7 +1181,7 @@ function get_input_sender_name_inner( dfd ){
 }
 
 
-//
+
 
 
 
