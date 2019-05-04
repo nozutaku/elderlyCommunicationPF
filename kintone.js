@@ -847,24 +847,39 @@ function get_account_data_all( dfd ){
       var num = Object.keys(body.records).length;
       console.log("num = " + num);
       
-      var line_one_id;
+      var line_one_id, email_one_id;
       line_broadcast_account = "";
+      email_broadcast_account = "";
       
       for (var i = 0; i < num; i++){
           
         line_one_id = body.records[i].line_id.value;
         console.log("line_one_id = " + line_one_id );
+        email_one_id = body.records[i].mail_address.value;
+        console.log("email_one_id = " + email_one_id );
         
-        if( line_broadcast_account != "" ){
-          line_broadcast_account += "," + line_one_id;
+        if( line_one_id != ""){
+          if( line_broadcast_account != "" ){
+            line_broadcast_account += "," + line_one_id;
+          }
+          else{
+            line_broadcast_account = line_one_id;
+          }
         }
-        else{
-          line_broadcast_account = line_one_id;
+                
+        if( email_one_id != ""){
+          if( email_broadcast_account != "" ){
+            email_broadcast_account += "," + email_one_id;
+          }
+          else{
+            email_broadcast_account = email_one_id;
+          }
         }
           
       }
       
       console.log("line_broadcast_account="+line_broadcast_account);
+      console.log("email_broadcast_account="+email_broadcast_account);
 
     
       return dfd.resolve();

@@ -2,12 +2,14 @@
   "name": "elderly-communication-pf",
   "version": "0.0.1",
   "dependencies": {
+    "@sendgrid/mail": "^6.3.1",
     "body-parser": "^1.18.3",
     "ejs": "^2.5.7",
     "express": "^4.15.4",
     "jquery-deferred": "^0.3.1",
     "pg": "^7.1.2",
     "query-string": "^6.2.0",
-    "request": "^2.67.0"
+    "request": "^2.67.0",
+    "sendgrid": "^5.2.3"
   }
 }

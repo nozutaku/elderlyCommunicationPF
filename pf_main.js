@@ -4,7 +4,7 @@
 var IS_HEROKU = 1;		//デバッグオプション
 var DEBUG = 1;
 
-global.SEARCH_TEL_NUMBER_PREFERED  = 0;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
+global.SEARCH_TEL_NUMBER_PREFERED  = 1;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
 //===== 設定(ここまで) =======================================
 
 
@@ -24,6 +24,7 @@ var querystring = require('querystring');
 var line_command = require('./line.js');
 var kintone_command = require('./kintone.js');
 var twilio_command = require('./twilio.js');
+var sendgrid_command = require('./sendgrid.js');
 
 
 
@@ -66,9 +67,9 @@ global.LINE_MODE_UNFOLLOW = 9;
 global.new_follower_line_id;
 
 global.line_broadcast_account;
+global.email_broadcast_account;
 
-global.URL_CALENDER = "https://v2urc.cybozu.com/k/22/";
-
+global.URL_CALENDER = "https://v2urc.cybozu.com/k/" + process.env.CYBOZU_APP_ID;
 
 global.NotDecidedDay = function( ){
   this.date="";
@@ -235,6 +236,7 @@ app.post("/api/command/:command", function(req, res, next){
     .then(kintone_command.set_data2db)
     .then(kintone_command.get_account_all)
     .then(line_command.send_line_broadcast)
+    //.then(sendgrid_command.send_email_broadcast_notify_register_schedule)
     .done(function(){
       console.log("end");
     });
@@ -345,6 +347,12 @@ app.post("/api/command/:command", function(req, res, next){
       line_command.send_line_broadcast();
       console.log("line_broadcast_all END");
     });
+  
+    
+  }
+    else if( req.params.command == "5" ){
+    
+      sendgrid_command.send_email_broadcast_notify_register_schedule();
   
     
   }
@@ -747,7 +755,7 @@ function make_phonecall_comment(){
 /* -----------------------------------------------------
   [UTILITY]
   URL内のパラメータからcaller_noを取り出す。（"caller_no="から"&pickup_place"の間に格納されている番号）
-  originalUrl=/api/command/register?daytime=201905010800&pickup_people=100&caller_no=+819080683055&pickup_place=41
+  originalUrl=/api/command/register?daytime=xxx&pickup_people=yyy&caller_no=+81zzzzzzzzzz&pickup_place=41
   ----------------------------------------------------- */
 function get_caller_no_from_url( url ){
   var STRING_CALLERNO = "caller_no=";
