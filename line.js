@@ -279,11 +279,12 @@ function set_line_reply_message( mode, input_message ){
     info1 = new PushMessage();
     info1.type = 'text';
     info1.text = "送迎者登録ありがとうございました。\n\n"
-      + "送迎希望者からご連絡あり次第、本LINEにてご連絡致しますので送迎可能な場合は下記フォーマットにてLINEにて返答お願いします"
+      + "送迎希望者からご連絡あり次第、本LINEにてご連絡致します"
       + String.fromCodePoint(choose_emoji(TYPE_LINE_EMOJI_SMILE));
     
     pushmessage[0] = info1;
     
+    /*
     info2 = new PushMessage();
     info2.type = 'text';
     info2.text = 
@@ -291,7 +292,7 @@ function set_line_reply_message( mode, input_message ){
       + "時間: 〇:〇\n"
       + "送迎対象者: 〇〇\n"
       + "あなたの名前: 〇〇";
-    pushmessage[1] = info2;    
+    pushmessage[1] = info2;    */
     
     info3 = new PushMessage();
     info3.type = 'text';
@@ -299,9 +300,9 @@ function set_line_reply_message( mode, input_message ){
       "本地区の予約状況は下記で参照可能です\n"
       + "https://v2urc.cybozu.com/k/22/\n"
       + "(PCで見る方が望ましい)\n"
-      + "account: cfi-guest\n"
-      + "pass: codeforikoma2018";
-    pushmessage[2] = info3; 
+      + "account: shika\n"
+      + "pass: volunteer2019";
+    pushmessage[1] = info3; 
     
     info4 = new PushMessage();
     info4.type = 'text';
@@ -312,9 +313,10 @@ function set_line_reply_message( mode, input_message ){
       + " - LINE\n"
       + " - twilio\n"
       + " - kintone\n"
+      + " - Sendgrid\n"
       + " - heroku\n\n"
       + "produced by CODE for IKOMA";
-    pushmessage[3] = info4; 
+    pushmessage[2] = info4; 
     
     
   }

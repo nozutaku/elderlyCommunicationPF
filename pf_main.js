@@ -3,8 +3,11 @@
 //===== 設定(ここから) =======================================
 var IS_HEROKU = 1;		//デバッグオプション
 var DEBUG = 1;
+global.LOG_RECORD = 1;    //1=ログをサーバーに保存する
+
 
 global.SEARCH_TEL_NUMBER_PREFERED  = 1;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
+
 //===== 設定(ここまで) =======================================
 
 
@@ -96,10 +99,15 @@ global.phonecall_comment = "";   //電話で伝える文言
 
 global.flg_need_to_search_pickup_people_name;  //送迎対象者番号からの検索必要有無フラグ(pickup_people_name検索時に利用)
 
-
-
-
-
+//ログ記録用　LOG_RECORD=1の時のみ利用
+global.input_log;       //ログ記録用バッファ
+global.input_log_type;  //ログ記録用種別
+//ログ記録用種別内容
+global.LOG_TYPE_REQUEST_PICKUP = "送迎依頼入電";
+global.LOG_TYPE_REGISTER_LINE_BOT = "送迎登録(BOT)";
+global.LOG_TYPE_BROADCAST_LINE_REPLY = "送迎登録(LINE返信)";
+global.LOG_TYPE_LINE_REGISTER = "LINE登録";
+global.LOG_TYPE_LINE_UNREGISTER = "LINE登録解除";
 
 
 
@@ -238,6 +246,12 @@ app.post("/api/command/:command", function(req, res, next){
     .then(line_command.send_line_broadcast)
     //.then(sendgrid_command.send_email_broadcast_notify_register_schedule)
     .done(function(){
+      input_sender = "";
+      input_log = req.originalUrl;
+      input_log_type = LOG_TYPE_REQUEST_PICKUP;
+      
+      kintone_command.set_log_db();
+      
       console.log("end");
     });
     
@@ -411,16 +425,24 @@ app.post('/webhook', function(req, res, next){
           if( event.type == 'follow' ){
             
             line_reply_mode = LINE_MODE_FOLLOW;
+            input_log_type = LOG_TYPE_LINE_REGISTER;
             //line_message(event);
           }
           else{
             line_reply_mode = LINE_MODE_UNFOLLOW;
+            input_log_type = LOG_TYPE_LINE_UNREGISTER;
             //line_message(event);
             
           }
           input_line_message = "";
           line_reply_token = event.replyToken;
           line_command.send_line_reply();
+          
+          //log record
+          input_date = input_time = input_pickup_people = input_pickup_people_num = input_destination = input_sender = "";
+          input_log = "line_id=" + new_follower_line_id;
+          //input_log_type = LOG_TYPE_LINE_REGISTER; 上で設定
+          kintone_command.set_log_db();
           
         }
       }
@@ -475,6 +497,12 @@ app.post('/webhook', function(req, res, next){
               if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
                 call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
               }
+              
+              //log record
+              input_date = input_time = input_pickup_people = input_pickup_people_num = input_destination = input_sender = "";
+              input_log = "kintone_id=" + input_kintone_id + "  sender_line_id="+input_sender_line_id;
+              input_log_type = LOG_TYPE_REGISTER_LINE_BOT;
+              kintone_command.set_log_db();
             });
 
 
@@ -582,12 +610,13 @@ function line_message( event ){
     input_line_message = event.message.text;
     input_sender_line_id = event.source.userId;
     console.log("input_message = "+ input_line_message);
-    input_destination = " ";
+    //input_destination = " ";
     
     if( is_valid_register_input( input_line_message )){
       console.log("input_date="+input_date);
       console.log("input_time="+input_time);
       console.log("input_pickup_people="+input_pickup_people);
+      console.log("input_desitination="+input_destination);
       //console.log("input_sender="+input_sender);
       
       
@@ -601,6 +630,12 @@ function line_message( event ){
         if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
           call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
         }
+        
+        //log record
+        input_log = "";
+        input_pickup_people_num = "";
+        input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
+        kintone_command.set_log_db();
         
       });
       
@@ -651,13 +686,11 @@ function line_message( event ){
 
 
 function is_valid_register_input( input_text ){
-  /*
-  + "日時: 〇〇\n"
-      + "送迎対象者: 〇〇"
-      */
+
   var KEYWORD_DATE = "日";
   var KEYWORD_TIME = "時間"
   var KEYWORD_PLACE = "場所";
+  var KEYWORD_PLACE2 = "行先";
   var KEYWORD_PICKUPPEOPLE = "送迎対象者";
   //var KEYWORD_SENDER = "あなたの名前";
 
@@ -667,6 +700,7 @@ function is_valid_register_input( input_text ){
   input_date = "";
   input_time = "";
   input_pickup_people = "";
+  input_destination = "";
   //input_sender = "";
   
 
@@ -699,11 +733,14 @@ function is_valid_register_input( input_text ){
 //      input_sender = tmp[1].trim();
 //      console.log("hito="+tmp[1]);
 //    }
+    else if(( tmp[0] == KEYWORD_PLACE) || ( tmp[0] == KEYWORD_PLACE2 )){
+      input_destination = tmp[1].trim();
+      console.log("destination=" + tmp[1]);
+    }
   }
   
   
-  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" )){
-//  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" ) && ( input_sender != "" )){
+  if(( input_date != "" ) && ( input_time != "" ) && ( input_pickup_people != "" ) && ( input_destination != "" )){
     return(1);
   }
   else{

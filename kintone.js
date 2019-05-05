@@ -125,6 +125,13 @@ module.exports.get_placename = function(req, res){
 }
 
 
+/* ====== ログDB操作 ======= */
+module.exports.set_log_db = function(req, res){
+  var dfd_set_log_db = new $.Deferred;
+  
+  return log_record( dfd_set_log_db, input_date, input_time, input_pickup_people, input_pickup_people_num, input_destination, 
+                    input_sender, input_log );
+}
 
 
 
@@ -1196,6 +1203,70 @@ function get_input_sender_name_inner( dfd ){
 }
 
 
+
+
+/* ------------------------------------------------------------
+   ログをkintoneへ記録
+  ------------------------------------------------------------- */
+function log_record( dfd, input_date, input_time, input_pickup_people, input_pickup_people_num, input_destination, 
+                    input_sender, input_log ){
+  
+  if(! LOG_RECORD ){
+    //nothing to do.
+    return dfd.resolve();
+  }
+  
+  var options = {
+    uri: process.env.KINTONE_URL,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_LOG_DB_API_TOKEN,
+      "Content-type": "application/json"
+    },
+    json: {
+      "app": process.env.CYBOZU_LOG_DB_APP_ID,
+      "record": {
+        "type": {
+          "value": input_log_type
+        },
+        "date": {
+          "value": input_date
+        },
+        "time": {
+          "value": input_time
+        },
+        "pickup_people": {
+          "value": input_pickup_people
+        },
+        "pickup_people_num": {
+          "value": input_pickup_people_num
+        },
+        "sender": {
+          "value": input_sender
+        },
+        "destination":{
+          "value": input_destination
+        },
+        "comment":{
+          "value": input_log
+        }
+      }
+    }
+  };
+
+  request.post(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+      console.log("[log_record]success!");
+      return dfd.resolve();
+    } else {
+      console.log('[log_record]http error: '+ response.statusCode);
+      console.log(body);
+      return dfd.resolve();
+    }
+  });
+  
+  return dfd.promise();
+  
+}
 
 
 
