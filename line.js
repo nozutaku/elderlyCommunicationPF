@@ -5,7 +5,7 @@
     heroku config:set LINE_USERID=xxxx
 */
 
-var DEBUG = 1;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
+var DEBUG = 0;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
 var LOCAL_DEBUG = 0;    //1=Local node.js利用   0=herokuサーバー利用(default)  
 var DEBUG_ISTODAY_24H = 0;  //1=デバッグ用24時間データ全登録　0=リリース用
 

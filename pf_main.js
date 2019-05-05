@@ -6,7 +6,7 @@ var DEBUG = 1;
 global.LOG_RECORD = 1;    //1=ログをサーバーに保存する
 
 
-global.SEARCH_TEL_NUMBER_PREFERED  = 1;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
+global.SEARCH_TEL_NUMBER_PREFERED  = 0;    //1=送迎依頼者の電話番号優先(セキュリティ重視)　0=送迎依頼者の入力番号のみを利用
 
 //===== 設定(ここまで) =======================================
 
@@ -244,7 +244,7 @@ app.post("/api/command/:command", function(req, res, next){
     .then(kintone_command.set_data2db)
     .then(kintone_command.get_account_all)
     .then(line_command.send_line_broadcast)
-    //.then(sendgrid_command.send_email_broadcast_notify_register_schedule)
+    .then(sendgrid_command.send_email_broadcast_notify_register_schedule)
     .done(function(){
       input_sender = "";
       input_log = req.originalUrl;
