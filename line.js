@@ -5,7 +5,7 @@
     heroku config:set LINE_USERID=xxxx
 */
 
-var DEBUG = 0;          //1=DEBUG 0=RELEASE   (特定時間以外broadcastしない機能もここ)
+var DEBUG = 0;          //1=DEBUG 0=RELEASE   (オーナーにのみ配信する機能もこれ！★)
 var LOCAL_DEBUG = 0;    //1=Local node.js利用   0=herokuサーバー利用(default)  
 var DEBUG_ISTODAY_24H = 0;  //1=デバッグ用24時間データ全登録　0=リリース用
 
@@ -525,7 +525,7 @@ function show_line_button_template(){
 function show_line_confirm_template(){
   
   console.log("START show_line_confirm_template");
-  console.log("input_line_message="+input_line_message);
+  //console.log("input_line_message="+input_line_message);
   console.log("input_kintone_id="+input_kintone_id);
   
   var show_text = "この日時で正しいですか？\n\n"
