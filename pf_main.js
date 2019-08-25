@@ -283,7 +283,7 @@ app.post("/api/command/:command", function(req, res, next){
   /* ===============以下、テスト1 (postmanから送信) ============== */
   else if( req.params.command == "1"){
     
-    input_pickup_people_callid = "0743787077";
+    input_pickup_people_callid = "09012345678";
     input_pickup_people = "野津";
     input_date = "2019-04-21";
     input_time = "0900";
