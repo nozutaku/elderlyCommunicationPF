@@ -17,7 +17,7 @@
     //if (!document.getElementById('my-customized-view')) {
     //    return;
     //}
-    if (event.viewName !== '経費計算') {   //
+    if (event.viewName !== '集計(送迎対象者毎)') {   //
       return;
     }
     
@@ -45,32 +45,35 @@
     var record;
     var input_date;
     var record_year, record_month;
+    var sum_this_month = 0;
     
     
     for (var i = 0; i < records.length; i++) {
       console.log("i="+i + "length="+ records.length);
       record = records[i];
       
-      console.log("date=" + record.date.value);
+      //console.log("date=" + record.date.value);
       input_date = split_date(record.date.value);
       record_year = input_date.year;
       record_month = input_date.month;
       
       
-      if( record.sender.value == "送迎者未決定" )   continue;
+      if( record.pickup_people.value == "送迎対象者未決定" )   continue;
      
       flg = 0;
       for(j=0; j< output.length; j++){
-        if(record.sender.value == output[j][0]){
-          output[j][1]++;
+        if(record.pickup_people.value == output[j][0]){
+          output[j][1] = count_up(output[j][1], record.round_trip.value);
+          //output[j][1]++;
           flg = 1;
           //console.log(output[j][1]);
           
           if((this_year == record_year) && (this_month == record_month)){
-            output[j][2]++;   //this month data
+            output[j][2] = count_up(output[j][2], record.round_trip.value);
+            sum_this_month = count_up(sum_this_month, record.round_trip.value);
           }
           else if((last_month_year == record_year) && (last_month == record_month)){
-            output[j][3]++;   //last month data
+            output[j][3] = count_up(output[j][3], record.round_trip.value);
           }
           
           
@@ -80,17 +83,18 @@
       if( flg != 1 ){
         output[j] = new Array(2);
 
-        output[j][0] = record.sender.value;   //人名
-        output[j][1] = 1;                     //トータル回数
+        output[j][0] = record.pickup_people.value;   //人名
+        output[j][1] = count_up(0, record.round_trip.value);  //トータル回数
         output[j][2] = 0;                     //今月回数初期化
         output[j][3] = 0;                     //先月回数初期化
         //console.log("input j="+j);
         
         if((this_year == record_year) && (this_month == record_month)){
-          output[j][2]++;   //this month data
+          output[j][2] = count_up(output[j][2], record.round_trip.value);
+          sum_this_month = count_up(sum_this_month, record.round_trip.value);
         }
         else if((last_month_year == record_year) && (last_month == record_month)){
-          output[j][3]++;   //last month data
+          output[j][3] = count_up(output[j][3], record.round_trip.value);
         }
         
       }
@@ -116,16 +120,18 @@
       cell1.appendChild(tmpA);
       */
       //cell1.innerHTML = "test";
-      //cell1.innerHTML = record.sender.value;    //送迎者名
+      //cell1.innerHTML = record.pickup_people.value;    //送迎者名
       cell1.innerHTML = output[k][0];
       
-      cell2.innerHTML = output[k][1];   //合計送迎回数
-      cell3.innerHTML = output[k][2];   //今月送迎回数
-      cell4.innerHTML = output[k][3];   //先月送迎回数
+      cell4.innerHTML = output[k][1];   //合計送迎回数
+      cell2.innerHTML = output[k][2];   //今月送迎回数
+      cell3.innerHTML = output[k][3];   //先月送迎回数
     }
     
     
     //window.alert('カスタマイズビューはじめました');
+    
+    document.getElementById('sum-view').innerHTML = "今月は" + sum_this_month + "往復！お疲れさまでした。";
     
   });
   
@@ -205,4 +211,32 @@ function split_date( input_date ){
   return obj;
 }
 
-
+/* --------------------------------------------
+ 回数をカウントUPする
+ 引数：num = カウントUP前の回数
+      round_trip = 右記３択　往復/往路のみ/復路のみ
+ 戻り値：カウントUP後の回数
+-------------------------------------------- */
+function count_up( num, round_trip ){
+  var ret;
+  
+  //console.log("round_trip="+round_trip);
+  
+  switch( round_trip ){
+    case "往復":
+      ret = num + 1;
+      break;
+    case "往路のみ":
+      ret = num + 0.5;
+      break;
+    case "復路のみ":
+      ret = num + 0.5;
+      break;
+    default:
+      ret = num + 1;
+      console.log("round_trip="+round_trip);
+      break;
+  }
+  
+  return ret;
+}
