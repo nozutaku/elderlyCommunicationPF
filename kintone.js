@@ -169,7 +169,14 @@ function set_data( dfd, input_date, input_time, input_pickup_people, input_picku
       },
       "destination_num":{
         "value": input_destination_num
+      },
+      "round_trip":{
+        "value": "往復"
+      },
+      "pickup_people_num":{
+        "value": "1"
       }
+      
     }
   }
 };
