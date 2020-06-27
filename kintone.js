@@ -842,6 +842,20 @@ function get_account_data_all( dfd ){
   
   console.log("select_url = " + select_url);
   
+  // テストアカウントからの要求ならばLINEは管理者のみ１件、email無しへ送信
+  console.log("input_pickup_people_num = " + input_pickup_people_num);
+  var TEST_PICKUP_PEOPLE_NUM = "9999";
+  if( input_pickup_people_num == TEST_PICKUP_PEOPLE_NUM ){
+    line_broadcast_account = process.env.LINE_USERID;
+    email_broadcast_account = "";
+    
+    console.log("line_broadcast_account="+line_broadcast_account);
+    console.log("email_broadcast_account="+email_broadcast_account);
+    return dfd.resolve();
+  }
+
+  
+  
   var options = {
     uri: select_url,
     headers: {
