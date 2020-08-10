@@ -510,10 +510,12 @@ app.post('/webhook', function(req, res, next){
               }
               
               //log record
-              input_date = input_time = input_pickup_people = input_pickup_people_num = input_destination = input_sender = "";
+              input_pickup_people_num = ""; //pickup_people_numだけ取得していないので初期化しておく
+              // input_date、input_time、input_sender、 input_pickup_people、input_destinationそのまま残す(エラーになってる場合もあると思うけどログ記録なので良いでしょう)
               input_log = "kintone_id=" + input_kintone_id + "  sender_line_id="+input_sender_line_id;
               input_log_type = LOG_TYPE_REGISTER_LINE_BOT;
               kintone_command.set_log_db();
+              // input_xxの初期化が行われないので次機会に正常動作するか心配
             });
 
 
