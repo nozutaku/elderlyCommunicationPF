@@ -104,8 +104,11 @@ global.input_log;       //ログ記録用バッファ
 global.input_log_type;  //ログ記録用種別
 //ログ記録用種別内容
 global.LOG_TYPE_REQUEST_PICKUP = "送迎依頼入電";
-global.LOG_TYPE_REGISTER_LINE_BOT = "送迎登録(BOT)";
-global.LOG_TYPE_BROADCAST_LINE_REPLY = "送迎登録(LINE返信)";
+global.LOG_TYPE_CALLBACK = "コールバック";
+global.LOG_TYPE_NOT_CALLBACK = "NOT_CALLBACK";    //文字列登録用では無く、情報受け渡し用（例外的な使い方）
+global.LOG_TYPE_REGISTER_LINE_BOT = "送迎登録(LINE返信)";
+global.LOG_TYPE_BROADCAST_LINE_REPLY = "送迎登録(LINE直接送信)";
+global.LOG_TYPE_REGISTER_CALENDER = "送迎登録(カレンダー編集)";
 global.LOG_TYPE_LINE_REGISTER = "LINE登録";
 global.LOG_TYPE_LINE_UNREGISTER = "LINE登録解除";
 
@@ -270,13 +273,21 @@ app.post("/api/command/:command", function(req, res, next){
     
     
   }
+  //カレンダーが編集された。送迎対象者に電話連絡
   else if( req.params.command == "kintone2heroku"){
     console.log("start kintone2heroku command");
     
     input_kintone_id = req.query.kintone_id;
     console.log("input_kintone_id = " + input_kintone_id);
 
+    //call_to_pickup_people にて電話発信しなかった場合の登録内容
+    input_log_type = LOG_TYPE_REGISTER_CALENDER;
+    input_log = "カレンダー編集."
+    input_pickup_people_num = input_destination_num = ""; //pickup_people_numだけ取得していないので初期化しておく
+
     call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+
+
   }
   
   
@@ -506,16 +517,23 @@ app.post('/webhook', function(req, res, next){
               console.log("kintone_command send");
               
               if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
-                call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+                
+                //call_to_pickup_people にて電話発信しなかった場合の登録内容
+                input_log_type = LOG_TYPE_REGISTER_LINE_BOT;
+                input_log = "LINE返答登録"; //call_to_pickup_peopleの中でもLog登録行っているためコメント追加
+
+                call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える　＆ Log record
               }
-              
-              //log record
-              input_pickup_people_num = ""; //pickup_people_numだけ取得していないので初期化しておく
-              // input_date、input_time、input_sender、 input_pickup_people、input_destinationそのまま残す(エラーになってる場合もあると思うけどログ記録なので良いでしょう)
-              input_log = "kintone_id=" + input_kintone_id + "  sender_line_id="+input_sender_line_id;
-              input_log_type = LOG_TYPE_REGISTER_LINE_BOT;
-              kintone_command.set_log_db();
-              // input_xxの初期化が行われないので次機会に正常動作するか心配
+              else{
+                //log record
+                input_pickup_people_num = ""; //pickup_people_numだけ取得していないので初期化しておく
+                // input_date、input_time、input_sender、 input_pickup_people、input_destinationそのまま残す(エラーになってる場合もあると思うけどログ記録なので良いでしょう)
+                input_log = "kintone_id=" + input_kintone_id + "  sender_line_id="+input_sender_line_id;
+                input_log_type = LOG_TYPE_REGISTER_LINE_BOT;
+                kintone_command.set_log_db();
+                // input_xxの初期化が行われないので次機会に正常動作するか心配
+              }
+
             });
 
 
@@ -604,6 +622,8 @@ app.post('/', function (req, res) {
 });
 
 
+
+
 function line_message( event ){
   
   line_reply_token = event.replyToken;
@@ -641,14 +661,21 @@ function line_message( event ){
         console.log("kintone_command send");
         
         if(( line_reply_mode == LINE_MODE_ACCEPT_REPLY ) && ( input_kintone_id > 0 )){
+          
+          //call_to_pickup_people にて電話発信しなかった場合の登録内容
+          input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
+          input_log = "LINE直接返答";
+
           call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+
         }
-        
-        //log record
-        input_log = "";
-        input_pickup_people_num = "";
-        input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
-        kintone_command.set_log_db();
+        else{
+          //log record
+          input_log = "";
+          input_pickup_people_num = "";
+          input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
+          kintone_command.set_log_db();
+        }
         
       });
       
@@ -766,6 +793,8 @@ function is_valid_register_input( input_text ){
 
 /* -----------------------------------------------------
   送迎対象者に送迎予定の連絡を電話で伝える
+  Logも記録する（電話発信しない場合は呼び元で指定したLOG_TYPEを記録する。予備元で
+                input_log_type と input_log を設定しておくこと)
   ----------------------------------------------------- */
 function call_to_pickup_people( input_kintone_id ){
   
@@ -776,10 +805,21 @@ function call_to_pickup_people( input_kintone_id ){
       make_phonecall_comment();                       //電話で伝える文言作成
       twilio_command.auto_call_to_pickup_people();    //電話発信
       console.log("Reserve to call");
+
+      //後のlog recordのためのlog_type設定
+      input_log_type = LOG_TYPE_CALLBACK;
+
     }
     else{
       console.log("NO need to call");
+
+      //呼び元のinput_log_typeをそのまま利用する
     }
+
+    // log record
+    input_log += " kintone_id=" + input_kintone_id;
+    input_pickup_people_num = input_destination_num = "";
+    kintone_command.set_log_db();
 
     console.log("[call_to_pickup_people] END\n");
   });
