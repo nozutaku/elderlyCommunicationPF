@@ -44,6 +44,8 @@ global.input_destination;
 global.input_destination_num; //場所の番号
 global.input_kintone_id;
 
+global.callback_kintone_ids = new Array();    //callback対象kintone_IDテーブル
+
 
 global.line_reply_mode;
 global.input_line_message;
@@ -105,6 +107,7 @@ global.input_log_type;  //ログ記録用種別
 //ログ記録用種別内容
 global.LOG_TYPE_REQUEST_PICKUP = "送迎依頼入電";
 global.LOG_TYPE_CALLBACK = "コールバック";
+global.LOG_TYPE_CALLBACK_REMINDER = "コールバック(自動)";
 global.LOG_TYPE_NOT_CALLBACK = "NOT_CALLBACK";    //文字列登録用では無く、情報受け渡し用（例外的な使い方）
 global.LOG_TYPE_REGISTER_LINE_BOT = "送迎登録(LINE返信)";
 global.LOG_TYPE_BROADCAST_LINE_REPLY = "送迎登録(LINE直接送信)";
@@ -387,6 +390,18 @@ app.post("/api/command/:command", function(req, res, next){
   else if( req.params.command == "5" ){
     sendgrid_command.send_email_broadcast_notify_register_schedule();
   }
+  else if( req.params.command == "6" ){
+    //batch proc test
+    var dummy_req = {
+      _parsedUrl: {
+        query: param1="1"
+      }
+    };
+    //前日自動コールバックテスト
+    //callback_for_reminder();    //テスト時はcallback_for_reminder のmodule.exports.xx -> function 変更要
+    console.log("★★★start★★★")
+
+  }
   else if( req.params.command == "9" ){
     console.log("test=9");
   }
@@ -623,6 +638,68 @@ app.post('/', function (req, res) {
 
 
 
+/* ------------------------------------------------------- 
+  翌日送迎予定の人に電話連絡
+   ------------------------------------------------------- */
+  module.exports.callback_for_reminder = function(req, res){
+    //function callback_for_reminder(){
+
+
+      var CALL_DURATION = 2 * 60;   //２分
+
+    console.log(" --------------------------------- ");
+    console.log("callback_for_reminder START");
+    console.log(" --------------------------------- ");
+  
+    //var params = querystring.parse(req._parsedUrl.query);
+    //console.log( "param = " + params['param1'] );
+  
+  
+    //kintoneDBから翌日送迎予定 & 自動連絡フラグ有りデータ取得
+    //is_previous_callback
+
+    kintone_command.check_reminder()
+    .done(function(){
+
+      console.log("callback_kintone_ids.length = " + callback_kintone_ids.length );
+      for (var i = 0; i < callback_kintone_ids.length; i++){
+        console.log("callback_kintone_ids["+i+"]=" + callback_kintone_ids[i]);
+
+/*      //下記内容は  wait_and_call()の中へ移動
+        input_kintone_id = callback_kintone_ids[i];
+        console.log("input_kintone_id = " + input_kintone_id);
+    
+        //call_to_pickup_people にて電話発信しなかった場合の登録内容
+        input_log_type = LOG_TYPE_NOT_CALLBACK;         //該当の人がコールバックOFF設定の場合に利用
+        input_log = "前日自動電話連絡。"
+        input_pickup_people_num = input_destination_num = ""; //pickup_people_numだけ取得していないので初期化しておく
+    
+        call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+  
+        console.log(" --------------------------------- ");
+        console.log("callback_for_reminder " + i + "件目reserve END");
+        console.log(" --------------------------------- ");
+*/
+
+        wait_and_call( i * CALL_DURATION, callback_kintone_ids[i] );
+
+
+
+      }
+      
+
+
+
+    });
+  
+  
+    return;
+  //}
+  };
+
+
+  
+
 
 function line_message( event ){
   
@@ -801,6 +878,20 @@ function call_to_pickup_people( input_kintone_id ){
   kintone_command.get_schedule_data_from_1_ID()     //input_kintone_id から１件スケジュール全取得
   .then(kintone_command.get_pickup_people_callid)   //input_pickup_people からpickup_peopleの電話番号を取得
   .done(function(){
+    if( input_sender == WORD_SENDER_NOT_DECIDED ){  //送迎予定者がまだ決まっていない場合、管理者へ電話連絡
+      input_pickup_people_callid = process.env.TWILIO_MANAGER_PHONE_NUMBER;
+      input_pickup_people_auto_call_flg = 1;
+
+      make_phonecall_not_decided_sender_comment_to_manager();       //電話で伝える文言作成
+      twilio_command.auto_call_to_pickup_people();    //電話発信
+      console.log("Reserve to call. 管理者へ緊急電話。送迎予定が決まってない。");
+
+      //後のlog recordのためのlog_type設定
+      input_log = "管理者へ緊急電話。送迎予定が決まってない。";
+      input_log_type = LOG_TYPE_CALLBACK;
+
+    }
+
     if(( input_pickup_people_callid.length > 0 ) && ( input_pickup_people_auto_call_flg > 0 )){
       make_phonecall_comment();                       //電話で伝える文言作成
       twilio_command.auto_call_to_pickup_people();    //電話発信
@@ -840,6 +931,21 @@ function make_phonecall_comment(){
   + "予定が変更になれば速やかにご連絡お願いします。\n"
   + "では、失礼します";
   
+}
+
+/* -----------------------------------------------------
+  管理者に自動電話連絡する文言生成
+  phonecall_commentに格納する
+  ----------------------------------------------------- */
+function make_phonecall_not_decided_sender_comment_to_manager(){
+
+  phonecall_comment
+  = "いきいきの輪管理者さんのお宅でしょうか。\n"
+  + "鹿ノ台自治連合会　送迎予約システムからのお知らせです。\n"
+  + "明日の送迎予定者が決まっていないデータがあります。\n"
+  + "至急確認をお願いします。"
+  + "では、失礼します";
+
 }
 
 /* -----------------------------------------------------
@@ -897,3 +1003,61 @@ function change_nationalnumber_to_jpphonenumber( national_number ){
 }
 
 
+/* --------------------------------------------
+  sleep関数を実装
+  https://www.sejuku.net/blog/24629
+  --------------------------------------------- */
+  /*
+function sleep(msec) {
+  return new Promise(function(resolve) {
+
+     setTimeout(function() {resolve()}, msec);
+
+  })
+}
+*/
+
+function sleepByPromise(sec) {
+ 
+  return new Promise(resolve => setTimeout(resolve, sec*1000));
+
+}
+
+/* --------------------------------------------
+  sleep関数を実装
+  https://www.sejuku.net/blog/24629
+  --------------------------------------------- */
+async function wait(sec) {
+ 
+  console.log('wait ' + sec.toString() + ' sec right now!');
+
+  // await句を使って、Promiseの非同期処理が完了するまで待機します。
+  await sleepByPromise(sec);
+
+  console.log('wait ' + sec.toString() + ' sec done!');
+
+}
+
+async function wait_and_call( sec, kintone_id ){
+
+  console.log("wait " + sec.toString() + " sec" + "kintoneid= " + kintone_id );
+
+  await sleepByPromise(sec);
+
+  console.log("wait " + sec.toString() + " sec done! prepare CALL" + "kintoneid= " + kintone_id );
+  
+  input_kintone_id = kintone_id;
+  
+  //call_to_pickup_people にて電話発信しなかった場合の登録内容
+  input_log_type = LOG_TYPE_NOT_CALLBACK;         //該当の人がコールバックOFF設定の場合に利用
+  input_log = "前日自動電話連絡。"
+  input_pickup_people_num = input_destination_num = ""; //pickup_people_numだけ取得していないので初期化しておく
+    
+  call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
+  
+  console.log(" --------------------------------- ");
+  console.log("callback_for_reminder. kintone_id=" + kintone_id + ". call start");
+  console.log(" --------------------------------- ");  
+
+
+}

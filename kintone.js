@@ -75,6 +75,14 @@ module.exports.check_still_vacant = function(req, res){
   
 }
 
+//送迎予定日の前日かつ、自動リマインド対象であるデータをcallback_kintone_idsに格納
+module.exports.check_reminder = function(req, res){
+  var dfd_check_reminder = new $.Deferred;
+  
+  return check_reminder_inner( dfd_check_reminder );
+}
+
+
 
 
 /* ====== 送迎対象者DB操作 ======= */
@@ -399,6 +407,72 @@ function is_sender( dfd ){
   return dfd.promise();  
   
   
+}
+
+function init_callback_kintone_ids(){
+  if( callback_kintone_ids.length != 0 ){
+    while( callback_kintone_ids.length > 0 ){
+      callback_kintone_ids.pop();
+    }
+  }
+}
+
+/* ------------------------------------------------------------
+  送迎予定日の前日かつ、自動リマインド対象であるデータをcallback_kintone_idsに格納
+  ------------------------------------------------------------- */
+function check_reminder_inner( dfd ){
+
+  init_callback_kintone_ids();
+
+  var tomororrow = "TOMORROW()";    //https://developer.cybozu.io/hc/ja/articles/202331474
+  //var flag = "前日コールバック有";
+  var flag = "YES";
+
+  var select_url = process.env.KINTONE_URL_MULTI;
+  //var raw_query = "date=" + "\"" + tomororrow + "\"" + " and reminder_callback=" + "\"" + flag + "\"" ;
+  var raw_query = "date=" + tomororrow + " and reminder_callback in (" + "\"" + flag + "\"" + ")";
+  //var raw_query = "reminder_callback in (" + "\"" + flag + "\"" + ")";
+  //var raw_query = "date=" + "\"" + tomororrow + "\"" ;
+  console.log("raw_query = " + raw_query );
+  
+  select_url = select_url + "?app=" + process.env.CYBOZU_APP_ID + "&query=" + encodeURIComponent( raw_query );
+  console.log("select_url = " + select_url);
+
+
+  var options = {
+    uri: select_url,
+    headers: {
+      "X-Cybozu-API-Token": process.env.CYBOZU_API_TOKEN
+    },
+    json: true
+  };
+
+  request.get(options, function(error, response, body){
+    if (!error && response.statusCode == 200) {
+
+      //console.log("body");
+      //console.log(body);
+
+      var num = Object.keys(body.records).length;
+      console.log("num = " + num);
+      
+      for (var i = 0; i < num; i++){
+        callback_kintone_ids[i] = body.records[i].$id.value;
+        console.log("callback_kintone_ids[" + i + "]=" + callback_kintone_ids[i] );
+        console.log(" body.records[i].reminder_callback.value=" + body.records[i].reminder_callback.value );
+      }
+
+      console.log("[check_reminder_inner]success! end.");
+
+      return dfd.resolve();
+    }
+    else{
+      console.log('[check_reminder_inner]http error: '+ response.statusCode);
+      return dfd.resolve();
+    }
+  });
+
+  return dfd.promise();
 }
 
 
