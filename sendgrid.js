@@ -78,7 +78,7 @@ function send_email_broadcast_notify_register_schedule_inner( dfd ){
   
   //https://devcenter.heroku.com/articles/sendgrid
   // https://github.com/sendgrid/sendgrid-nodejs/blob/master/packages/mail/USE_CASES.md
-  s//https://blog.wh-plus.co.jp/entry/2018/12/02/103008
+  //https://blog.wh-plus.co.jp/entry/2018/12/02/103008
   const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   const msg = {
@@ -144,16 +144,38 @@ function send_email_broadcast_notify_register_schedule_inner( dfd ){
   
   
   
-  sgMail.send(msg);
+  //sgMail.send(msg);
+
+  sgMail
+  .send(msg)
+  .then(() => {
+    console.log("[send_email_broadcast_notify_register_schedule_inner]send success! \n");
+    return dfd.resolve();
+  })
+  .catch(error => {
+    // Log friendly error
+    console.log("[send_email_broadcast_notify_register_schedule_inner]send Error! \n");
+    console.error(error);
+
+    if (error.response) {
+      // Extract error msg
+      const {message, code, response} = error;
+
+      // Extract response msg
+      const {headers, body} = response;
+
+      console.error(body);
+      return dfd.resolve();
+
+
+    }
+  });
   
-  console.log("[send_email_broadcast_notify_register_schedule_inner]\n");
   console.log("to="+ email_broadcast_account + "\n");
   console.log("subject=" + subject_string + "\n");
   console.log("body=" + email_content + "\n");
   
-  
-  
-  return dfd.resolve();
+  return dfd.promise();
   
 }
 
