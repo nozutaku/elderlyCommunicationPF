@@ -2,7 +2,9 @@
 
 //===== 設定(ここから) =======================================
 var IS_HEROKU = 1;		//デバッグオプション
-var DEBUG = 1;
+var DEBUG = 0;
+var DEBUG_PICKUP_PEOPLE = "開発テスト１";
+var DEBUG_PEOPLE_NUM = 9999;
 global.LOG_RECORD = 1;    //1=ログをサーバーに保存する
 
 
@@ -31,7 +33,7 @@ var sendgrid_command = require('./sendgrid.js');
 
 
 
-
+// グローバル変数。追加時はinit_input_data()に追加すること
 global.input_date;
 global.input_time;
 global.input_pickup_people;   //送迎対象者(送迎される人)
@@ -43,6 +45,7 @@ global.input_sender_line_id;  //送迎する人のLINEID
 global.input_destination;
 global.input_destination_num; //場所の番号
 global.input_kintone_id;
+
 
 global.callback_kintone_ids = new Array();    //callback対象kintone_IDテーブル
 
@@ -116,9 +119,27 @@ global.LOG_TYPE_LINE_REGISTER = "LINE登録";
 global.LOG_TYPE_LINE_UNREGISTER = "LINE登録解除";
 
 
+function init_input_data(){
+  input_date = "";
+  input_time = "";
+  input_pickup_people = "";   //送迎対象者(送迎される人)
+  input_pickup_people_num = 0;   //送迎対象者(送迎される人)の番号
+  input_pickup_people_callid = "";  //送迎対象者の電話番号
+  input_pickup_people_auto_call_flg = 0;   //送迎対象者への自動電話連絡有無
+  input_sender = "";          //送迎する人
+  input_sender_line_id = "";  //送迎する人のLINEID
+  input_destination = "";
+  input_destination_num = 0; //場所の番号
+  input_kintone_id = 0;
+}
 
+function debug(){
+  var ret = 0;
+  if(( DEBUG == 1) || (input_pickup_people == DEBUG_PICKUP_PEOPLE ) || (input_pickup_people_num == DEBUG_PEOPLE_NUM))
+    ret = 1;
 
-
+  return ret;
+}
 
 
 
@@ -280,6 +301,7 @@ app.post("/api/command/:command", function(req, res, next){
   else if( req.params.command == "kintone2heroku"){
     console.log("start kintone2heroku command");
     
+    init_input_data();
     input_kintone_id = req.query.kintone_id;
     console.log("input_kintone_id = " + input_kintone_id);
 
@@ -741,14 +763,14 @@ function line_message( event ){
           
           //call_to_pickup_people にて電話発信しなかった場合の登録内容
           input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
-          input_log = "LINE直接返答";
+          input_log = "LINE直接返答。";
 
           call_to_pickup_people( input_kintone_id );  //送迎対象者に送迎予定を電話で伝える
 
         }
         else{
           //log record
-          input_log = "";
+          input_log = "sender_line_id="+input_sender_line_id;
           input_pickup_people_num = "";
           input_log_type = LOG_TYPE_BROADCAST_LINE_REPLY;
           kintone_command.set_log_db();
@@ -879,6 +901,12 @@ function call_to_pickup_people( input_kintone_id ){
   .then(kintone_command.get_pickup_people_callid)   //input_pickup_people からpickup_peopleの電話番号を取得
   .done(function(){
     if( input_sender == WORD_SENDER_NOT_DECIDED ){  //送迎予定者がまだ決まっていない場合、管理者へ電話連絡
+
+      if( debug() ){
+        console.log("debugのため管理者へ緊急電話しない");
+        return;
+      }
+
       input_pickup_people_callid = process.env.TWILIO_MANAGER_PHONE_NUMBER;
       input_pickup_people_auto_call_flg = 1;
 
@@ -892,7 +920,7 @@ function call_to_pickup_people( input_kintone_id ){
 
     }
 
-    if(( input_pickup_people_callid.length > 0 ) && ( input_pickup_people_auto_call_flg > 0 )){
+    else if(( input_pickup_people_callid.length > 0 ) && ( input_pickup_people_auto_call_flg > 0 )){
       make_phonecall_comment();                       //電話で伝える文言作成
       twilio_command.auto_call_to_pickup_people();    //電話発信
       console.log("Reserve to call");
@@ -908,7 +936,12 @@ function call_to_pickup_people( input_kintone_id ){
     }
 
     // log record
-    input_log += " kintone_id=" + input_kintone_id;
+    if( input_sender_line_id != ""){
+      input_log += " kintone_id=" + input_kintone_id + " input_sender_line_id=" + input_sender_line_id;
+    }
+    else{
+      input_log += " kintone_id=" + input_kintone_id;
+    }
     input_pickup_people_num = input_destination_num = "";
     kintone_command.set_log_db();
 
