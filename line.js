@@ -298,7 +298,7 @@ function set_line_reply_message( mode, input_message ){
     info3.type = 'text';
     info3.text = 
       "本地区の予約状況は下記で参照可能です\n"
-      + "https://v2urc.cybozu.com/k/22/\n"
+      + URL_CALENDER + "/\n"
       + "(PCで見る方が望ましい)\n"
       + "account: shika\n"
       + "pass: volunteer2019";

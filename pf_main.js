@@ -77,7 +77,8 @@ global.new_follower_line_id;
 global.line_broadcast_account;
 global.email_broadcast_account;
 
-global.URL_CALENDER = "https://v2urc.cybozu.com/k/" + process.env.CYBOZU_APP_ID;
+global.URL_CALENDER = process.env.KINTONE_DOMAIN_URL + "/k/" + process.env.CYBOZU_APP_ID;
+
 
 global.NotDecidedDay = function( ){
   this.date="";
@@ -321,15 +322,50 @@ app.post("/api/command/:command", function(req, res, next){
     
     input_pickup_people_callid = "09012345678";
     input_pickup_people = "野津";
-    input_date = "2019-04-21";
-    input_time = "0900";
+    input_pickup_people_num = 9999;
+    input_caller_no = "09012345678";
+    input_date = "2021-01-30";
+    input_time = "09:00";
+    input_destination_num = "41";
     input_destination = "いきいきホール";
     input_sender = "田口";
-    make_phonecall_comment();
+    //make_phonecall_comment();
     
-    twilio_command.auto_call_to_pickup_people();
-    console.log("-- 1 end --\n");
+    //twilio_command.auto_call_to_pickup_people();
+    //console.log("-- 1 end --\n");
     
+
+    /****** TEST1 START *******/
+    console.log("------");
+    console.log("input_date="+input_date);
+    console.log("input_time="+input_time);
+    console.log("input_pickup_people_num="+input_pickup_people_num);
+    console.log("input_caller_no="+input_caller_no);
+    console.log("input_destination_num="+input_destination_num);
+    console.log("------");
+    
+    
+    //カレンダーDB登録→LINE配信
+    kintone_command.get_placename()
+    .then(kintone_command.get_pickup_people_name_from_caller_no)
+    .then(kintone_command.get_pickup_people_name_from_pickup_people_num)
+    .then(kintone_command.set_data2db)
+    .then(kintone_command.get_account_all)
+    .then(line_command.send_line_broadcast)
+    .then(sendgrid_command.send_email_broadcast_notify_register_schedule)
+    .done(function(){
+      input_sender = "";
+      input_log = req.originalUrl;
+      input_log_type = LOG_TYPE_REQUEST_PICKUP;
+      
+    //  kintone_command.set_log_db();   //ToDo: 登録テストはこのコメントアウトを外すこと
+      
+      console.log("end");
+    });
+
+
+    /****** TEST1 END *******/
+
   /*  
   function make_phonecall_comment(){
   
@@ -473,7 +509,7 @@ app.post('/webhook', function(req, res, next){
             //insert_line_id2db( new_follower_id, TYPE_USER );
           }
           else if ( event.type == 'unfollow' ){
-            kintone_command.delete_account_data2db();   //★★うまく動かない！！！！！！誰かヘルプ！！！
+            kintone_command.delete_account_data2db();   //★★うまく動かない！！！！！！誰かヘルプ！！！→kintoneのpermissionで削除を有効にすれば削除されるだろう
             
           }
           else{
@@ -668,6 +704,8 @@ app.post('/', function (req, res) {
 
 
       var CALL_DURATION = 2 * 60;   //２分
+
+      init_input_data();
 
     console.log(" --------------------------------- ");
     console.log("callback_for_reminder START");
