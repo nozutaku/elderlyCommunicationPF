@@ -263,7 +263,7 @@ function set_line_reply_message( mode, input_message ){
     info2.text = 
       "日: 2018-〇-〇\n"
       + "時間: 〇:〇\n"
-      + "送迎対象者: 〇〇\n"
+      + "利用者: 〇〇\n"
       + "あなたの名前: 〇〇";
     pushmessage[1] = info2;    
     
@@ -279,7 +279,8 @@ function set_line_reply_message( mode, input_message ){
     info1 = new PushMessage();
     info1.type = 'text';
     info1.text = "送迎者登録ありがとうございました。\n\n"
-      + "送迎希望者からご連絡あり次第、本LINEにてご連絡致します"
+      + "利用者からご連絡あり次第、本LINEにてご連絡致します"
+      + "(" + new_follower_line_id.substr( -4 ) +")"
       + String.fromCodePoint(choose_emoji(TYPE_LINE_EMOJI_SMILE));
     
     pushmessage[0] = info1;
@@ -346,7 +347,7 @@ function make_broadcast_message( num, date, time, pickup_people, destination ){
   else if( num == 2 ){
     text = "日: " + date + " " + "\n"
             + "時間: " + time + " " + "\n"
-            + "送迎対象者: " + pickup_people + "\n"
+            + "利用者: " + pickup_people + "\n"
             + "行先: " + destination;
   }
   else if( num == 3 ){
@@ -530,7 +531,7 @@ function show_line_confirm_template(){
   
   var show_text = "この日時で正しいですか？\n\n"
                   + "　日時: " + input_date + " " + input_time + "\n"
-                  + "　送迎対象者: " + input_pickup_people + "さん\n"
+                  + "　利用者: " + input_pickup_people + "さん\n"
                   + "　場所: " + input_destination;
   
 
