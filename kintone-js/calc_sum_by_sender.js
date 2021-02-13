@@ -1,5 +1,5 @@
 /* ----------------------------------------------------
-  カスタマイズリスト表示
+  カスタマイズリスト表示　総利用者数の表示
 
 参考：https://developer.cybozu.io/hc/ja/articles/202905604
    ---------------------------------------------------- */
@@ -17,7 +17,7 @@
     //if (!document.getElementById('my-customized-view')) {
     //    return;
     //}
-    if (event.viewName !== '集計(利用者毎)') {   //
+    if (event.viewName !== '集計(総利用者数)') {   //
       return;
     }
     
@@ -49,7 +49,7 @@
     
     
     for (var i = 0; i < records.length; i++) {
-      //console.log("i="+i + "length="+ records.length);
+      console.log("i="+i + "length="+ records.length);
       record = records[i];
       
       //console.log("date=" + record.date.value);
@@ -58,22 +58,21 @@
       record_month = input_date.month;
       
       
-      if( record.pickup_people.value == "送迎対象者未決定" )   continue;
+      if( record.sender.value == "送迎者未決定" )   continue;
      
       flg = 0;
       for(j=0; j< output.length; j++){
-        if(record.pickup_people.value == output[j][0]){
-          output[j][1] = count_up(output[j][1], record.round_trip.value, record.pickup_people_num.value);
-          //output[j][1]++;
+        if(record.sender.value == output[j][0]){
+          output[j][1] = count_up_for_sum(output[j][1], record.round_trip.value, record.num_of_parties.value);
           flg = 1;
-          //console.log(output[j][1]);
+
           
           if((this_year == record_year) && (this_month == record_month)){
-            output[j][2] = count_up(output[j][2], record.round_trip.value, record.pickup_people_num.value);
-            sum_this_month = count_up(sum_this_month, record.round_trip.value, record.pickup_people_num.value);
+            output[j][2] = count_up_for_sum(output[j][2], record.round_trip.value, record.num_of_parties.value);
+            sum_this_month = count_up_for_sum(sum_this_month, record.round_trip.value, record.num_of_parties.value);
           }
           else if((last_month_year == record_year) && (last_month == record_month)){
-            output[j][3] = count_up(output[j][3], record.round_trip.value, record.pickup_people_num.value);
+            output[j][3] = count_up_for_sum(output[j][3], record.round_trip.value, record.num_of_parties.value);
           }
           
           
@@ -83,18 +82,18 @@
       if( flg != 1 ){
         output[j] = new Array(2);
 
-        output[j][0] = record.pickup_people.value;   //人名
-        output[j][1] = count_up(0, record.round_trip.value, record.pickup_people_num.value);  //トータル回数
+        output[j][0] = record.sender.value;   //人名
+        output[j][1] = count_up_for_sum(0, record.round_trip.value, record.num_of_parties.value);  //トータル回数
         output[j][2] = 0;                     //今月回数初期化
         output[j][3] = 0;                     //先月回数初期化
-        //console.log("input j="+j);
+
         
         if((this_year == record_year) && (this_month == record_month)){
-          output[j][2] = count_up(output[j][2], record.round_trip.value, record.pickup_people_num.value);
-          sum_this_month = count_up(sum_this_month, record.round_trip.value, record.pickup_people_num.value);
+          output[j][2] = count_up_for_sum(output[j][2], record.round_trip.value, record.num_of_parties.value);
+          sum_this_month = count_up_for_sum(sum_this_month, record.round_trip.value, record.num_of_parties.value);
         }
         else if((last_month_year == record_year) && (last_month == record_month)){
-          output[j][3] = count_up(output[j][3], record.round_trip.value, record.pickup_people_num.value);
+          output[j][3] = count_up_for_sum(output[j][3], record.round_trip.value, record.num_of_parties.value);
         }
         
       }
@@ -120,7 +119,7 @@
       cell1.appendChild(tmpA);
       */
       //cell1.innerHTML = "test";
-      //cell1.innerHTML = record.pickup_people.value;    //送迎者名
+      //cell1.innerHTML = record.sender.value;    //送迎者名
       cell1.innerHTML = output[k][0];
       
       cell4.innerHTML = output[k][1];   //合計送迎回数
@@ -131,7 +130,7 @@
     
     //window.alert('カスタマイズビューはじめました');
     
-    document.getElementById('sum-view').innerHTML = "今月は" + sum_this_month + "往復！お疲れさまでした。";
+    document.getElementById('sum-view').innerHTML = "今月はのべ" + sum_this_month + "人！お疲れさまでした。";
     
   });
   
@@ -217,46 +216,33 @@ function split_date( input_date ){
       round_trip = 右記３択　往復/往路のみ/復路のみ
  戻り値：カウントUP後の回数
 -------------------------------------------- */
-function count_up( num, round_trip, people_num ){
-  var ONEWAY = 0.5;
-  var MIN_COUNT = 1;
-  var MAX_COUNT = 5;
-  var DEFAULT_COUNT = 1;
+function count_up_for_sum( num, round_trip, parties ){
   var ret;
   
   //console.log("round_trip="+round_trip);
-
-  var people_count=0;
   
-  people_count = Number(people_num);
-  if(isNaN(people_count)){
-    people_count = DEFAULT_COUNT;
-    //console.log("[1]people_count=" + people_count + "people_num=" + people_num);
-  }
-  else{
-    if(( people_count < MIN_COUNT ) || ( people_count > MAX_COUNT )){   //未入力時はここに来ている
-      //console.log("[3]people_count=" + people_count + "people_num=" + people_num);
-      people_count = DEFAULT_COUNT;
-    }
-    else{
-      //console.log("[2]people_count=" + people_count + "people_num=" + people_num);
-    }
-  }
-  
+  /*
   switch( round_trip ){
     case "往復":
-      ret = num + people_count;
+      ret = num + 1;
       break;
     case "往路のみ":
-      ret = num + ONEWAY * people_count;
+      ret = num + 0.5;
       break;
     case "復路のみ":
-      ret = num + ONEWAY * people_count;
+      ret = num + 0.5;
       break;
     default:
-      ret = num + DEFAULT_COUNT;
-      //console.log("round_trip="+round_trip);
+      ret = num + 1;
+      console.log("round_trip="+round_trip);
       break;
+  }
+  */
+
+  ret = num + 1;
+
+  if( parties > 1 ){   //同行者がいれば、加算
+    ret += parties - 1;
   }
   
   return ret;
