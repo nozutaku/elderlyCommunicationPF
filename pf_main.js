@@ -56,6 +56,7 @@ global.line_reply_token;
 
 global.WORD_SENDER_NOT_DECIDED = "送迎者未決定";
 global.WORD_DESTINATION_NOT_DECIDED = "場所未";
+global.WORD_REQUEST_CALENDER = "カレンダー";
 
 //line_reply_modeへ格納する値
 global.LINE_MODE_1 = 1;
@@ -65,7 +66,7 @@ global.LINE_MODE_DENEY_REPLY_NO_DATA = 3;
 global.LINE_MODE_DENEY_REPLY_ALREADY_EXIST = 4;
 global.LINE_MODE_DENEY_REPLY_CANCEL = 5;
 global.LINE_MODE_DENEY_REPLY_SHOW_CALENDER = 6;
-
+global.LINE_MODE_SHOW_CALENDER = 90;
 
 
 global.LINE_MODE_NOTIFY_CORRECT_FORMAT = 7;   //フォーマット問い合わせ
@@ -819,6 +820,13 @@ function line_message( event ){
       
       
     }
+
+    else if( input_line_message == WORD_REQUEST_CALENDER ){
+      line_reply_mode = LINE_MODE_SHOW_CALENDER;
+      //input_line_message = "";    //初期化の必要性は無いだろう
+      line_command.send_line_reply();
+    }
+
     else{
       //担当者未決定の日を取得し、リスト表示してbotで提示
       kintone_command.get_vacant_day()

@@ -243,6 +243,12 @@ function set_line_reply_message( mode, input_message ){
     info2.stickerId = '13';
     pushmessage[1] = info2;  
   } 
+  else if( mode == LINE_MODE_SHOW_CALENDER ){
+    info1 = new PushMessage();
+    info1.type = 'text';
+    info1.text = URL_CALENDER;
+    pushmessage[0] = info1;
+  }
   else if( mode == LINE_MODE_DENEY_REPLY_SHOW_CALENDER ){
     info1 = new PushMessage();
     info1.type = 'text';
